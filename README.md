@@ -4,52 +4,67 @@
 
 Operation: Iron Veil is a work-in-progress cross-platform game project. This repository contains:
 - **Godot prototype** — native project in the repository root.
-- **Browser edition** — Three.js client in `web/` and a Python WebSocket room server in `server/`.
+- **Browser edition** — Three.js game in `web/` with optional WebSocket multiplayer in `server/`.
 
-## Browser edition: local launch, internet multiplayer
+## Play the browser edition
 
-The browser game itself is served from your own computer using a local HTTP server. Multiplayer is internet-only and connects to the configured secure WebSocket endpoint (default: `wss://iron-veil-server.onrender.com`). The browser client rejects `ws://` endpoints so it won't connect to a LAN/local multiplayer server.
+### Option A — open the game from your own computer
 
-### Run the game client locally
-
-Install Python 3, open a terminal at the repository root, and run:
+1. Download the repository ZIP and extract it.
+2. Open a terminal in the extracted repository folder.
+3. Run:
 
 ```bash
 python -m http.server 8000 --bind 127.0.0.1
 ```
 
-Then open **http://localhost:8000/web/** in your browser. Keep the terminal open while playing; press Ctrl+C to stop the local web server. On Windows, `py -3 -m http.server 8000 --bind 127.0.0.1` can be used if `python` is not recognized.
+4. Open **http://localhost:8000/web/** in your browser.
 
-Do not open `web/index.html` directly as a `file://` URL. JavaScript modules require the local HTTP server. The current client loads Three.js from jsDelivr, so the first load and game startup still require internet access; the game assets are not yet fully vendored for offline use.
+On Windows, `py -3 -m http.server 8000 --bind 127.0.0.1` may be used if `python` is not recognized. Keep the terminal open while playing; press Ctrl+C to stop the local web server. Do not open `web/index.html` as a `file://` URL because browser JavaScript modules require HTTP.
 
-### Internet multiplayer server
+### Option B — publish it with GitHub Pages
 
-The default public endpoint is `wss://iron-veil-server.onrender.com`. It is hosted separately from the game client. A free Render instance may sleep during inactivity and take a while to wake up.
+The repository now has a root `index.html` that redirects to the browser game. In GitHub, open **Settings → Pages**, choose **Deploy from a branch**, select the `main` branch and `/(root)`, then save. After GitHub Pages finishes publishing, open:
 
-If you want to run your own public server, install Python 3.11+ and the dependency:
+`https://yukkurip.github.io/Yukkuri-FPS2/`
+
+If Pages has not been enabled for the repository, the URL will not work until the setting is saved. GitHub Pages hosts the static game files; it does not run the Python multiplayer server. The browser loads Three.js from jsDelivr, so internet access is still required for that dependency.
+
+## Game modes
+
+### Offline training
+
+Select **「訓練ミッションを開始（オフライン）」** from the menu. No multiplayer server is needed. Reach the three glowing objective markers in order before the three-minute timer expires. WASD or arrow keys move, Shift sprints, and the mouse controls the view. Touch devices use the on-screen movement pad and drag-to-look area.
+
+### Optional online multiplayer
+
+Multiplayer requires a separately hosted secure WebSocket server. The default configured address is `wss://iron-veil-server.onrender.com`; availability is not guaranteed, and free hosts may sleep. Enter a room code and select **「オンラインロビーに接続」**. The browser prototype currently synchronizes player positions and displays other players; the offline objective mission is currently single-player.
+
+If connection fails, use offline training or check the server and network with the network administrator. Do not attempt to bypass school or organization network restrictions.
+
+To run your own server, install Python 3.11+ and the dependency:
 
 ```bash
 pip install -r server/requirements.txt
 python server/main.py
 ```
 
-Deploy it to a public host that supports persistent WebSocket connections and TLS, then set the client URL to its `wss://` address. The browser client intentionally does not accept `ws://` LAN/local endpoints.
+Deploy it to a host that explicitly supports persistent WebSocket connections and TLS, then enter its `wss://` URL. The client intentionally requires secure WebSocket connections.
 
-## Browser controls
+## Browser prototype status
 
-- WASD / arrow keys: move.
-- Mouse: look around on desktop.
-- Touch: use the on-screen movement pad; drag the right side of the screen to look around.
-- Lobby: enter a player name, room code, and secure internet WebSocket URL.
+Implemented:
+- Startup title and responsive lobby.
+- Offline three-objective timed training mission.
+- 3D arena with structures, lighting, fog, and objective markers.
+- Desktop and touch movement, sprint, mouse/touch look, timer, and mission status.
+- Optional WebSocket room join and player-position synchronization.
 
-## Current browser prototype status
-
-- Startup credit animation and lobby.
-- Lightweight 3D training arena.
-- WebSocket room join and player position synchronization.
-- Game client served locally; internet multiplayer uses a separate secure WebSocket server.
-- This is an early movement/networking prototype, not a finished shooter. No weapon, damage, match, or anti-cheat systems are implemented.
-- Test on actual low-spec Windows PCs and Android browsers before wider release.
+Still in development:
+- The browser edition is a prototype, not a finished AAA game.
+- Online match objectives are not synchronized yet; the current online feature is basic player-position synchronization.
+- More playtesting is needed on low-spec Windows PCs and Android browsers.
+- The browser edition loads Three.js from a CDN and is not fully offline with no internet at all.
 
 ## Godot prototype
 
