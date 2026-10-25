@@ -2,44 +2,50 @@
 
 **A Yukkuri P Production**
 
-A lightweight Godot 4 prototype aiming to combine fast-paced action, objective-based team play, and tactical movement. The current project is an early offline prototype—not a finished FPS.
+Operation: Iron Veil is a work-in-progress cross-platform game project. This repository now contains two separate prototypes:
 
-## Current prototype
+- **Godot prototype** — native project in the repository root.
+- **Browser edition** — lightweight Three.js client in `web/`, plus a Python WebSocket room server in `server/`.
 
-- Startup credit: “ゆっくりP製作” fades in at the center, then fades into the lobby.
-- Dark tactical-style lobby UI.
-- Settings/help screen.
-- Lightweight 3D training area with WASD movement and mouse look.
-- Godot 4 Compatibility renderer selected for low-spec PCs.
+## Browser edition (online movement test)
 
-## Open the project
+### Run the browser client locally
+From the repository root, start a static web server, for example:
 
-1. Install Godot 4.x from the official website: https://godotengine.org/
-2. Download this repository (Code → Download ZIP) and extract it.
-3. In Godot Project Manager, choose Import and select this folder's project.godot.
-4. Open the project and press F6 or F5 to run.
+```bash
+python -m http.server 8000
+```
 
-## Controls
+Then open `http://localhost:8000/web/`.
 
-- WASD / arrow keys: move in the training area.
-- Mouse: look around (click in the scene to capture the mouse).
-- Esc: return to the lobby.
+### Run the multiplayer server locally
+Install Python 3.11+ and the dependency:
 
-## Roadmap
+```bash
+pip install -r server/requirements.txt
+python server/main.py
+```
 
-1. Validate startup, lobby, and movement on low-spec Windows hardware.
-2. Improve UI scaling and add mobile touch controls.
-3. Add objective-based gameplay and basic bots.
-4. Design an online architecture and test cross-platform networking.
-5. Add export presets and publish tested Windows/Web builds.
+In the browser lobby, enter `ws://localhost:8765` as the server URL for a local test. For another device on the same network, use the host PC's LAN address and port 8765, if the network/firewall permits it.
 
-## Important status notes
+For internet play, deploy `server/main.py` to a public Python host that supports long-running WebSocket connections, then enter its secure `wss://` URL. GitHub Pages can host the static browser files, but cannot run the Python multiplayer server itself.
 
-- Online multiplayer is not implemented yet.
-- Android touch controls are not implemented yet.
-- This is a starter prototype and has not been verified on the user's machine.
-- Web export must be tested separately; browser and native builds may have different limitations.
+## Browser controls
+- WASD / arrow keys: move.
+- Mouse: look around on desktop.
+- Touch: use the on-screen movement pad; drag the right side of the screen to look around.
+- Lobby: enter a player name, room code, and WebSocket URL.
+
+## Current browser prototype status
+- Startup credit animation and lobby.
+- Lightweight 3D training arena.
+- WebSocket room join and player position synchronization.
+- Online play requires a separately running/deployed WebSocket server.
+- This is an early movement/networking prototype, not a finished shooter. No weapon, damage, match, or anti-cheat systems are implemented.
+- Test on actual low-spec Windows PCs and Android browsers before wider release.
+
+## Godot prototype
+Open the repository root's `project.godot` in Godot 4.x. See the Godot prototype notes above for current limitations.
 
 ## License
-
-License has not been selected yet. Add a license before accepting contributions or redistributing the project publicly.
+No license has been selected yet. Choose a license before accepting contributions or redistributing the project publicly.
