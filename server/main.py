@@ -13,7 +13,8 @@ async def broadcast(room):
     players = list(rooms.get(room, {}).values())
     if not players:
         return
-    message = json.dumps({"type": "state", "players": players}, separators=(",", ":"))
+    public_players = [{k: v for k, v in p.items() if k != "_ws"} for p in players]
+    message = json.dumps({"type": "state", "players": public_players}, separators=(",", ":"))
     sockets = [p["_ws"] for p in players if p.get("_ws")]
     if sockets:
         await asyncio.gather(*(ws.send(message) for ws in sockets), return_exceptions=True)
@@ -31,9 +32,10 @@ async def handler(ws):
             except json.JSONDecodeError:
                 continue
             kind = data.get("type")
-            if kind == "join":
+            if kind == "join" and player is None:
                 room = "".join(c for c in str(data.get("room", "IRON-01")).upper() if c.isalnum() or c in "-_")[:12] or "IRON-01"
-                player_id = str(uuid.uuid4())
+                requested_id = str(data.get("id", ""))
+                player_id = requested_id[:64] if requested_id and requested_id not in rooms.get(room, {}) else str(uuid.uuid4())
                 player = {"id": player_id, "name": str(data.get("name", "Operator"))[:16], "x": 0, "z": 10, "yaw": 0, "_ws": ws}
                 rooms.setdefault(room, {})[player_id] = player
                 await send_json(ws, {"type": "notice", "message": f"ルーム {room} に参加しました"})
