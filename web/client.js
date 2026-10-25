@@ -1,5 +1,9 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
 
+// The game UI must be served over localhost/HTTP; opening index.html as file:// is unsupported.
+const isLocalHttp = location.protocol === "http:" || location.protocol === "https:";
+
+
 const $ = id => document.getElementById(id);
 const intro = $("intro"), lobby = $("lobby"), game = $("game"), statusEl = $("status");
 let socket = null, renderer, scene, camera, me, yaw = 0, pitch = 0, last = performance.now();
@@ -8,6 +12,10 @@ let touchLook = false, lastTouch = null, joined = false;
 const playerId = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2);
 const palette = [0x8db9d9,0xd2a56e,0x9cc8a4,0xc5a1db,0xd58c8c,0xd7d7a0];
 setTimeout(() => { intro.classList.add("hidden"); lobby.classList.remove("hidden"); }, 2700);
+if (!isLocalHttp) {
+  statusEl.textContent = "直接ファイルを開くことはできません。ローカルサーバーから開いてください（README参照）。";
+  $("joinBtn").disabled = true;
+}
 
 $("joinBtn").addEventListener("click", connectOnline);
 $("leaveBtn").addEventListener("click", leaveGame);
@@ -23,10 +31,10 @@ for(const ev of ["pointerup","pointercancel"])$("view").addEventListener(ev,()=>
 
 function connectOnline(){
  const url=$("serverUrl").value.trim(), name=$("playerName").value.trim()||"Operator", room=$("roomCode").value.trim().toUpperCase()||"IRON-01";
- if(!url.startsWith("wss://")&&!url.startsWith("ws://")){statusEl.textContent="WebSocketサーバーURLを入力してください。公開サイトでは通常 wss:// が必要です。";return;}
+ if(!url.startsWith("wss://")){statusEl.textContent="インターネット上の安全なWebSocketサーバーURL（wss://）を入力してください。ローカル接続（ws://）は使用できません。";return;}
  statusEl.textContent="サーバーへ接続中…";
  try{socket=new WebSocket(url)}catch(e){statusEl.textContent="URLを確認してください: "+e.message;return;}
- socket.onopen=()=>{socket.send(JSON.stringify({type:"join",id:playerId,name,room}));statusEl.textContent="接続しました。ルームに参加しています。";joined=true;lobby.classList.add("hidden");game.classList.remove("hidden");initScene();};
+ socket.onopen=()=>{socket.send(JSON.stringify({type:"join",id:playerId,name,room}));statusEl.textContent="接続しました。ルームに参加しています。";$("roomLabel").textContent=room;joined=true;lobby.classList.add("hidden");game.classList.remove("hidden");initScene();};
  socket.onmessage=e=>{let data;try{data=JSON.parse(e.data)}catch{return;}if(data.type==="state")updatePeers(data.players||[]);if(data.type==="notice")statusEl.textContent=data.message||"";};
  socket.onerror=()=>{statusEl.textContent="接続できません。サーバーURLとサーバーの起動状態を確認してください。";};
  socket.onclose=()=>{if(joined){joined=false;game.classList.add("hidden");lobby.classList.remove("hidden");statusEl.textContent="サーバーから切断されました。";}};
