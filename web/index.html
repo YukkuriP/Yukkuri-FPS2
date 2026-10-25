@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#080e15">
 <title>Operation: Iron Veil — Web Edition</title>
 <link rel="stylesheet" href="./style.css">
 </head>
@@ -13,22 +14,27 @@
   <div class="sub">INITIALIZING SYSTEMS</div>
 </div>
 <div id="lobby" class="screen hidden">
-  <header><div class="eyebrow">YUKKURI P PRODUCTION</div><h1>OPERATION: <span>IRON VEIL</span></h1><p>WEB EDITION · ONLINE TEST BUILD</p></header>
+  <header><div class="eyebrow">YUKKURI P PRODUCTION</div><h1>OPERATION: <span>IRON VEIL</span></h1><p>WEB EDITION · PLAYABLE TEST BUILD</p></header>
   <section class="panel">
-    <h2>オンラインロビー</h2>
-    <p class="hint">ゲーム本体は自分の端末のローカルサーバーから起動します。マルチプレイ通信はインターネット上のサーバーを使用します。</p>
+    <h2>ミッション選択</h2>
+    <p class="hint">ひとりで遊ぶ訓練モードはサーバー不要。オンラインは許可されたネットワークでサーバーに接続してください。</p>
     <label>プレイヤー名<input id="playerName" maxlength="16" value="Operator"></label>
-    <label>ルームコード<input id="roomCode" maxlength="12" value="IRON-01"></label>
-    <label>オンライン通信サーバー（wss://のみ）<input id="serverUrl" value="wss://iron-veil-server.onrender.com" placeholder="wss://your-server.example" autocomplete="url"></label>
-    <button id="joinBtn">ロビーに接続</button>
-    <p id="status">サーバー未接続。オンラインプレイにはWebSocketサーバーが必要です。</p>
-    <p class="hint">起動：リポジトリのルートで <code>python -m http.server 8000</code> を実行し、<code>http://localhost:8000/web/</code> を開いてください。操作：WASD / 矢印キーで移動、マウスで視点。スマホは画面上の操作ボタンを使用。</p>
+    <button id="offlineBtn" class="primary">訓練ミッションを開始（オフライン）</button>
+    <details>
+      <summary>オンラインマルチプレイ</summary>
+      <label>ルームコード<input id="roomCode" maxlength="12" value="IRON-01"></label>
+      <label>通信サーバー（wss://）<input id="serverUrl" value="wss://iron-veil-server.onrender.com" placeholder="wss://your-server.example" autocomplete="url"></label>
+      <button id="joinBtn">オンラインロビーに接続</button>
+      <p id="status">オンライン未接続。オフライン訓練はいつでも開始できます。</p>
+    </details>
+    <p class="hint">操作：WASD / 矢印キーで移動、Shiftでダッシュ、マウスで視点。スマホは画面上の操作ボタンと右側ドラッグを使用。目標地点を順番に確保して、制限時間内のクリアを目指そう。</p>
   </section>
-  <footer>LOCAL WEB CLIENT · INTERNET MULTIPLAYER</footer>
+  <footer>LOCAL TRAINING · OPTIONAL ONLINE MULTIPLAYER</footer>
 </div>
 <div id="game" class="hidden">
   <canvas id="view"></canvas>
-  <div id="hud"><div>IRON VEIL <span id="roomLabel"></span></div><div id="players">接続プレイヤー: 1</div><button id="leaveBtn">ロビーへ戻る</button></div>
+  <div id="hud"><div>IRON VEIL <span id="roomLabel">TRAINING</span></div><div id="players">オフライン訓練</div><div id="missionHud">目標 1/3</div><div id="timer">03:00</div><button id="leaveBtn">メニュー</button></div>
+  <div id="objectiveBanner">目標地点へ向かえ</div>
   <div id="crosshair">+</div>
   <div id="touchControls">
     <div class="pad"><button data-move="forward">▲</button><div><button data-move="left">◀</button><button data-move="back">▼</button><button data-move="right">▶</button></div></div>
