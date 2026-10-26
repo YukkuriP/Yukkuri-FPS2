@@ -156,15 +156,64 @@ function addBox(x,y,z,sx,sy,sz,color){
  m.position.set(x,y,z);scene.add(m);return m;
 }
 function resize(){if(!renderer||!camera)return;camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);}
+function createSoldier(color){
+ const root=new THREE.Group();
+ const cloth=new THREE.MeshStandardMaterial({color,roughness:.92});
+ const dark=new THREE.MeshStandardMaterial({color:0x26323a,roughness:.95});
+ const gear=new THREE.MeshStandardMaterial({color:0x46545b,roughness:.9});
+ const skin=new THREE.MeshStandardMaterial({color:0xb88e70,roughness:.9});
+ const part=(geometry,material,parent,position)=>{
+  const mesh=new THREE.Mesh(geometry,material);mesh.position.copy(position);parent.add(mesh);return mesh;
+ };
+ // Ground-level root; pivoted limbs make the stride read clearly from other players' view.
+ part(new THREE.CapsuleGeometry(.24,.48,4,8),cloth,root,new THREE.Vector3(0,1.12,0));
+ part(new THREE.BoxGeometry(.42,.42,.24),gear,root,new THREE.Vector3(0,1.18,.17)); // plate carrier
+ part(new THREE.SphereGeometry(.145,12,10),gear,root,new THREE.Vector3(0,1.57,0));
+ part(new THREE.SphereGeometry(.115,12,10),skin,root,new THREE.Vector3(0,1.78,0));
+ part(new THREE.BoxGeometry(.27,.13,.27),dark,root,new THREE.Vector3(0,1.88,0)); // helmet
+ const makeLimb=(x,y,length,width,material)=>{
+  const pivot=new THREE.Group();pivot.position.set(x,y,0);root.add(pivot);
+  part(new THREE.CapsuleGeometry(width*.5,length-width,4,6),material,pivot,new THREE.Vector3(0,-length*.42,0));
+  return pivot;
+ };
+ const leftArm=makeLimb(-.29,1.36,.48,.14,cloth);
+ const rightArm=makeLimb(.29,1.36,.48,.14,cloth);
+ const leftLeg=makeLimb(-.14,.91,.55,.17,cloth);
+ const rightLeg=makeLimb(.14,.91,.55,.17,cloth);
+ for(const [x,leg] of [[-.14,leftLeg],[.14,rightLeg]]){
+  part(new THREE.BoxGeometry(.19,.12,.31),dark,leg,new THREE.Vector3(0,-.48,-.055));
+ }
+ // A simple low-poly rifle silhouette held across the chest.
+ const rifle=new THREE.Group();root.add(rifle);
+ part(new THREE.BoxGeometry(.12,.12,.72),dark,rifle,new THREE.Vector3(.12,1.27,-.22));
+ part(new THREE.CylinderGeometry(.018,.018,.48,6),gear,rifle,new THREE.Vector3(.12,1.3,-.69)).rotation.x=Math.PI/2;
+ rifle.rotation.x=-.08;
+ return {root,leftArm,rightArm,leftLeg,rightLeg,rifle,target:new THREE.Vector3(),targetYaw:0,lastX:0,lastZ:0,speed:0,phase:0,cloth, dark,gear,skin};
+}
+function animateSoldier(s,dt,now){
+ const dx=s.root.position.x-s.lastX,dz=s.root.position.z-s.lastZ;
+ const measured=dt>0?Math.hypot(dx,dz)/dt:0;
+ s.speed=THREE.MathUtils.damp(s.speed,Math.min(measured,8),12,dt);
+ s.lastX=s.root.position.x;s.lastZ=s.root.position.z;
+ s.phase+=dt*(s.speed>.15?Math.min(13,s.speed*2.5):1.3);
+ const stride=Math.min(1,s.speed/4.2);
+ const swing=Math.sin(s.phase)*.62*stride;
+ s.leftLeg.rotation.x=swing;s.rightLeg.rotation.x=-swing;
+ s.leftArm.rotation.x=-swing*.7-.18;s.rightArm.rotation.x=swing*.7-.55;
+ // Small torso motion, reduced while nearly stationary to avoid idle jitter.
+ s.root.position.y=.018*Math.sin(now*.004)*(s.speed>.15?1:.25);
+ s.root.rotation.y=THREE.MathUtils.dampAngle(s.root.rotation.y,s.targetYaw,12,dt);
+}
 function updatePeers(list){
  const alive=new Set();
  for(const p of list){
   if(p.id===playerId)continue;
   alive.add(p.id);let obj=peers.get(p.id);
-  if(!obj){obj=new THREE.Mesh(new THREE.CapsuleGeometry(.35,.9,4,8),new THREE.MeshStandardMaterial({color:palette[peers.size%palette.length]}));scene?.add(obj);peers.set(p.id,obj);}
-  obj.position.set(Number(p.x)||0,.8,Number(p.z)||0);obj.rotation.y=Number(p.yaw)||0;
+  if(!obj){obj=createSoldier(palette[peers.size%palette.length]);obj.root.position.set(Number(p.x)||0,0,Number(p.z)||0);obj.lastX=obj.root.position.x;obj.lastZ=obj.root.position.z;scene?.add(obj.root);peers.set(p.id,obj);}
+  obj.target.set(Number(p.x)||0,0,Number(p.z)||0);
+  obj.targetYaw=Number(p.yaw)||0;
  }
- for(const [id,obj] of peers){if(!alive.has(id)){scene?.remove(obj);obj.geometry.dispose();obj.material.dispose();peers.delete(id);}}
+ for(const [id,obj] of peers){if(!alive.has(id)){scene?.remove(obj.root);peers.delete(id);}}
  $("players").textContent="接続プレイヤー: "+(list.length||1);
 }
 function updateMissionHud(){
@@ -210,6 +259,12 @@ function frame(now){
    if(objectiveIndex===3)finishMission(true);
    else $("objectiveBanner").textContent="目標確保！ 次の地点へ移動せよ";
   }
+ }
+ // Smooth remote-player motion between network snapshots instead of teleporting each update.
+ for(const obj of peers.values()){
+  obj.root.position.x=THREE.MathUtils.damp(obj.root.position.x,obj.target.x,14,dt);
+  obj.root.position.z=THREE.MathUtils.damp(obj.root.position.z,obj.target.z,14,dt);
+  animateSoldier(obj,dt,now);
  }
  if(onlineMode&&socket?.readyState===WebSocket.OPEN){
   socket.send(JSON.stringify({type:"move",id:playerId,x:camera.position.x,z:camera.position.z,yaw}));
