@@ -11,6 +11,11 @@ const palette = [0x8db9d9,0xd2a56e,0x9cc8a4,0xc5a1db,0xd58c8c,0xd7d7a0];
 setTimeout(() => { intro.classList.add("hidden"); lobby.classList.remove("hidden"); }, 1700);
 
 $("offlineBtn").addEventListener("click", startOffline);
+$("showOnlineBtn").addEventListener("click", () => {
+ $("onlinePanel").classList.remove("hidden");
+ statusEl.textContent="接続先を確認してから接続してください。";
+});
+$("backModesBtn").addEventListener("click", () => $("onlinePanel").classList.add("hidden"));
 $("joinBtn").addEventListener("click", connectOnline);
 $("leaveBtn").addEventListener("click", leaveGame);
 window.addEventListener("keydown", e => setKey(e.key,true));
@@ -49,8 +54,8 @@ $("view").addEventListener("pointermove",e=>{
 for(const ev of ["pointerup","pointercancel"])$("view").addEventListener(ev,()=>{touchLook=false;lastTouch=null});
 
 function startOffline(){
+ if(socket){const old=socket;socket=null;old.close();}
  onlineMode=false;
- if(socket){socket.close();socket=null;}
  $("roomLabel").textContent="TRAINING";
  $("players").textContent="オフライン訓練";
  beginGame();
@@ -59,26 +64,36 @@ function connectOnline(){
  const url=$("serverUrl").value.trim(), name=$("playerName").value.trim()||"Operator", room=$("roomCode").value.trim().toUpperCase()||"IRON-01";
  if(!url.startsWith("wss://")){statusEl.textContent="wss:// で始まる安全なサーバーURLを入力してください。";return;}
  statusEl.textContent="サーバーへ接続中…";
- try{socket=new WebSocket(url)}catch(e){statusEl.textContent="URLを確認してください: "+e.message;return;}
- socket.onopen=()=>{
-  if(!socket)return;
+ $("joinBtn").disabled=true;
+ try{socket=new WebSocket(url)}catch(e){statusEl.textContent="URLを確認してください: "+e.message;$("joinBtn").disabled=false;return;}
+ const current=socket;
+ current.onopen=()=>{
+  if(socket!==current)return;
   onlineMode=true;
-  socket.send(JSON.stringify({type:"join",id:playerId,name,room}));
+  current.send(JSON.stringify({type:"join",id:playerId,name,room}));
   statusEl.textContent="接続しました。";
   $("roomLabel").textContent=room;
+  $("joinBtn").disabled=false;
   beginGame();
  };
- socket.onmessage=e=>{
+ current.onmessage=e=>{
   let data;try{data=JSON.parse(e.data)}catch{return;}
   if(data.type==="state")updatePeers(data.players||[]);
   if(data.type==="notice")statusEl.textContent=data.message||"";
  };
- socket.onerror=()=>{statusEl.textContent="接続できません。サーバー状態・URL・ネットワークの許可設定を確認してください。オフライン訓練は利用できます。";};
- socket.onclose=()=>{
+ current.onerror=()=>{
+  if(socket!==current)return;
+  statusEl.textContent="接続できません。サーバー状態・URL・ネットワークの許可設定を確認してください。オフラインモードは引き続き利用できます。";
+  $("joinBtn").disabled=false;
+ };
+ current.onclose=()=>{
+  $("joinBtn").disabled=false;
+  if(socket===current)socket=null;
   if(joined&&onlineMode){
    joined=false;onlineMode=false;
    game.classList.add("hidden");lobby.classList.remove("hidden");
-   statusEl.textContent="サーバーから切断されました。オフライン訓練は利用できます。";
+   $("onlinePanel").classList.remove("hidden");
+   statusEl.textContent="サーバーから切断されました。オフラインモードは引き続き利用できます。";
   }
  };
 }
@@ -104,12 +119,11 @@ function initScene(){
  const sun=new THREE.DirectionalLight(0xffe7c4,2.0);sun.position.set(-12,18,8);scene.add(sun);
  const mat=(color,roughness=.88)=>new THREE.MeshStandardMaterial({color,roughness});
  const floor=new THREE.Mesh(new THREE.BoxGeometry(42,1,42),mat(0x35434b));floor.position.y=-.5;scene.add(floor);
- // Modular training-yard structures, cover blocks, lights, and painted lane markings.
  for(let i=0;i<11;i++){
   const x=-16+i*3.2;
   addBox(x,1,-13,1.35,2,1.35,0x58666e);
   addBox(x,1,13,1.35,2,1.35,0x58666e);
-  addBox(x,.012,0,.045,.02,25, i%2?0x71818a:0x9aa5a7);
+  addBox(x,.012,0,.045,.02,25,i%2?0x71818a:0x9aa5a7);
  }
  addBox(-10,1.25,1,2.5,2.5,5,0x53616a);
  addBox(10,1.25,-2,2.5,2.5,5,0x53616a);
@@ -118,7 +132,6 @@ function initScene(){
  addBox(0,.95,0,3.8,1.9,2,0x7c898d);
  addBox(-7,.7,7,2.5,1.4,2.2,0x4c5c65);
  addBox(8,.65,7,2.2,1.3,2.5,0x4c5c65);
- // Amber overhead lamps
  for(const x of [-12,-4,4,12]){
   addBox(x,4,-8,.18,.18,.18,0xffc76a);
   const lamp=new THREE.PointLight(0xffbd69,7,8);lamp.position.set(x,3.8,-8);scene.add(lamp);
@@ -126,7 +139,7 @@ function initScene(){
  me=new THREE.Mesh(new THREE.CapsuleGeometry(.35,.9,4,8),mat(0x8db9d9));
  me.position.set(0,.8,15);scene.add(me);
  const points=[new THREE.Vector3(-12,0,-9),new THREE.Vector3(12,0,-7),new THREE.Vector3(0,0,8)];
- objectives=points.map((p,i)=>{
+ objectives=points.map(p=>{
   const group=new THREE.Group();group.position.copy(p);
   const ring=new THREE.Mesh(new THREE.TorusGeometry(1.5,.09,8,40),new THREE.MeshStandardMaterial({color:0xffc45e,emissive:0x5a3000,emissiveIntensity:.8}));
   ring.rotation.x=Math.PI/2;ring.position.y=.08;group.add(ring);
@@ -185,7 +198,7 @@ function frame(now){
  me.position.set(camera.position.x,.8,camera.position.z);me.rotation.y=yaw;
  for(let i=0;i<objectives.length;i++){
   const o=objectives[i];
-  if(!o.done){o.group.rotation.y=now*.00035;o.beacon.intensity= i===objectiveIndex?4.5:1.1;}
+  if(!o.done){o.group.rotation.y=now*.00035;o.beacon.intensity=i===objectiveIndex?4.5:1.1;}
  }
  if(!missionEnded&&!onlineMode&&objectiveIndex<objectives.length){
   const target=objectives[objectiveIndex].position;
@@ -211,6 +224,7 @@ function leaveGame(){
  if(scene){scene.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material.dispose();}});}
  scene=null;camera=null;me=null;peers.clear();objectives=[];
  game.classList.add("hidden");lobby.classList.remove("hidden");
+ $("onlinePanel").classList.add("hidden");
  statusEl.textContent="メニューに戻りました。";
 }
 window.shiftPressed=false;
