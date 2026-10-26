@@ -1,0 +1,58 @@
+{
+  "name": "operation-iron-veil",
+  "version": "0.1.0",
+  "description": "Operation: Iron Veil - Windows desktop build",
+  "private": true,
+  "main": "desktop/main.cjs",
+  "author": "YukkuriP",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win portable nsis"
+  },
+  "devDependencies": {
+    "electron": "^35.2.1",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "jp.yukkurip.operationironveil",
+    "productName": "Operation Iron Veil",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "desktop/**/*",
+      "web/**/*",
+      "package.json",
+      "!web/**/*.map"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "Operation-Iron-Veil-Portable-${version}.${ext}"
+    },
+    "nsis": {
+      "artifactName": "Operation-Iron-Veil-Setup-${version}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Operation Iron Veil"
+    }
+  }
+}
