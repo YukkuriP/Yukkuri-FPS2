@@ -7,7 +7,7 @@ let peers = new Map(), move = {forward:false,back:false,left:false,right:false};
 let touchLook = false, lastTouch = null, joined = false, onlineMode = false;
 let objectives = [], objectiveIndex = 0, timeLeft = 180, missionEnded = false;
 const playerId = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2);
-const palette = [0x8db9d9,0xd2a56e,0x9cc8a4,0xc5a1db,0xd58c8c,0xd7d7a0];
+const palette = [0x7b8970,0x8b8d7b,0x697d70,0x9a9277,0x6d7776,0x8d806e];
 setTimeout(() => { intro.classList.add("hidden"); lobby.classList.remove("hidden"); }, 1700);
 
 $("offlineBtn").addEventListener("click", startOffline);
@@ -156,12 +156,49 @@ function addBox(x,y,z,sx,sy,sz,color){
  m.position.set(x,y,z);scene.add(m);return m;
 }
 function resize(){if(!renderer||!camera)return;camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);}
+function makeFabricTexture(seed=1){
+ const canvas=document.createElement("canvas");canvas.width=canvas.height=256;
+ const ctx=canvas.getContext("2d");let state=(seed|0)||1;
+ const rand=()=>{state=(Math.imul(state,1664525)+1013904223)|0;return (state>>>0)/4294967296;};
+ ctx.fillStyle="#777b68";ctx.fillRect(0,0,256,256);
+ const camo=["#4c5948","#626b52","#8b8b70","#343e37","#9a9276"];
+ for(let i=0;i<95;i++){
+  ctx.fillStyle=camo[Math.floor(rand()*camo.length)];
+  ctx.beginPath();let x=rand()*256,y=rand()*256;ctx.moveTo(x,y);
+  for(let j=0;j<5;j++){x+=(rand()-.5)*34;y+=(rand()-.5)*30;ctx.lineTo(x,y);}
+  ctx.closePath();ctx.fill();
+ }
+ for(let i=0;i<1800;i++){
+  const v=Math.floor(75+rand()*90);
+  ctx.fillStyle="rgba("+v+","+v+","+v+","+(rand()*.12)+")";
+  ctx.fillRect(rand()*256,rand()*256,1+rand()*2,1);
+ }
+ ctx.strokeStyle="rgba(25,30,26,.22)";ctx.lineWidth=1;
+ for(let y=8;y<256;y+=16){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(256,y);ctx.stroke();}
+ const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+ texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(1.5,2.2);texture.anisotropy=1;
+ return texture;
+}
+function makeGearTexture(){
+ const canvas=document.createElement("canvas");canvas.width=canvas.height=256;
+ const ctx=canvas.getContext("2d");ctx.fillStyle="#454e49";ctx.fillRect(0,0,256,256);
+ for(let y=0;y<256;y+=32){for(let x=0;x<256;x+=32){
+  ctx.fillStyle=((x+y)/32)%2?"#505951":"#3b4540";ctx.fillRect(x+2,y+2,28,28);
+  ctx.strokeStyle="#697167";ctx.lineWidth=2;ctx.strokeRect(x+4,y+4,24,24);
+  ctx.fillStyle="#262f2a";ctx.fillRect(x+7,y+7,18,18);
+ }}
+ for(let i=0;i<500;i++){const v=Math.floor(45+Math.random()*45);ctx.fillStyle="rgba("+v+","+v+","+v+",.18)";ctx.fillRect(Math.random()*256,Math.random()*256,1,1);}
+ const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+ texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(1.5,1.5);return texture;
+}
 function createSoldier(color){
  const root=new THREE.Group();
- const cloth=new THREE.MeshStandardMaterial({color,roughness:.92});
- const dark=new THREE.MeshStandardMaterial({color:0x26323a,roughness:.95});
- const gear=new THREE.MeshStandardMaterial({color:0x46545b,roughness:.9});
- const skin=new THREE.MeshStandardMaterial({color:0xb88e70,roughness:.9});
+ const clothTexture=makeFabricTexture(Math.round(color));
+ const gearTexture=makeGearTexture();
+ const cloth=new THREE.MeshStandardMaterial({color:0xc2c6b3,map:clothTexture,roughness:1});
+ const dark=new THREE.MeshStandardMaterial({color:0x202722,roughness:.96});
+ const gear=new THREE.MeshStandardMaterial({color:0xc4c7b9,map:gearTexture,roughness:.94,metalness:.04});
+ const skin=new THREE.MeshStandardMaterial({color:0xb88e70,roughness:.92});
  const part=(geometry,material,parent,position)=>{
   const mesh=new THREE.Mesh(geometry,material);mesh.position.copy(position);parent.add(mesh);return mesh;
  };
