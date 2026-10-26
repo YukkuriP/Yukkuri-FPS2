@@ -55,6 +55,14 @@
     <div class="lookpad">視点操作<br><small>右側をドラッグ</small></div>
   </div>
 </div>
-<script type="module" src="./client.js"></script>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="./client.js"></script>
 </body>
 </html>
