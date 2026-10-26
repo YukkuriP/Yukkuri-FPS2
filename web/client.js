@@ -6,6 +6,8 @@ let socket = null, renderer, scene, camera, me, yaw = 0, pitch = 0, last = perfo
 let peers = new Map(), move = {forward:false,back:false,left:false,right:false};
 let touchLook = false, lastTouch = null, joined = false, onlineMode = false;
 let objectives = [], objectiveIndex = 0, timeLeft = 180, missionEnded = false;
+let weapon, muzzleFlash, ammo = 30, reserveAmmo = 120, reloading = false, reloadAt = 0;
+let recoil = 0, fireCooldown = 0, aiming = false, shotCount = 0, walkPhase = 0;
 const playerId = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2);
 const palette = [0x7b8970,0x8b8d7b,0x697d70,0x9a9277,0x6d7776,0x8d806e];
 setTimeout(() => { intro.classList.add("hidden"); lobby.classList.remove("hidden"); }, 1700);
@@ -32,6 +34,10 @@ document.querySelectorAll("[data-move]").forEach(b=>{
  b.addEventListener("pointerdown",e=>{e.preventDefault();move[key]=true});
  for(const ev of ["pointerup","pointercancel","pointerleave"])b.addEventListener(ev,()=>move[key]=false);
 });
+window.addEventListener("contextmenu",e=>{if(joined)e.preventDefault();});
+window.addEventListener("mousedown",e=>{if(!joined)return;if(e.button===2){aiming=true;}if(e.button===0)fireWeapon();});
+window.addEventListener("mouseup",e=>{if(e.button===2)aiming=false;});
+window.addEventListener("keydown",e=>{if(e.key.toLowerCase()==="r")startReload();});
 $("view").addEventListener("click",()=>{
  if(!matchMedia("(pointer:coarse)").matches && document.pointerLockElement!==$("view"))$("view").requestPointerLock?.();
 });
@@ -138,6 +144,10 @@ function initScene(){
  }
  me=new THREE.Mesh(new THREE.CapsuleGeometry(.35,.9,4,8),mat(0x8db9d9));
  me.position.set(0,.8,15);scene.add(me);
+ weapon=createFirstPersonWeapon();
+ camera.add(weapon.root);
+ scene.add(camera);
+ installCombatHud();
  const points=[new THREE.Vector3(-12,0,-9),new THREE.Vector3(12,0,-7),new THREE.Vector3(0,0,8)];
  objectives=points.map(p=>{
   const group=new THREE.Group();group.position.copy(p);
@@ -150,6 +160,51 @@ function initScene(){
  });
  window.addEventListener("resize",resize);
  requestAnimationFrame(frame);
+}
+function createFirstPersonWeapon(){
+ const root=new THREE.Group();
+ const metal=new THREE.MeshStandardMaterial({color:0x20262a,roughness:.48,metalness:.72});
+ const polymer=new THREE.MeshStandardMaterial({color:0x303932,roughness:.86,metalness:.08});
+ const rubber=new THREE.MeshStandardMaterial({color:0x151a19,roughness:1});
+ const sight=new THREE.MeshStandardMaterial({color:0x0d1214,roughness:.3,metalness:.55});
+ const add=(geo,mat,pos,scale)=>{const m=new THREE.Mesh(geo,mat);m.position.set(...pos);if(scale)m.scale.set(...scale);root.add(m);return m;};
+ // Stylized fictional first-person rifle, built from low-cost local geometry.
+ add(new THREE.BoxGeometry(.19,.16,.57),polymer,[.23,-.23,-.58]);
+ add(new THREE.BoxGeometry(.16,.19,.23),rubber,[.23,-.25,-.23]); // stock
+ add(new THREE.BoxGeometry(.12,.19,.2),polymer,[.23,-.31,-.82]); // receiver
+ add(new THREE.BoxGeometry(.075,.1,.28),metal,[.23,-.23,-1.01]); // handguard
+ add(new THREE.CylinderGeometry(.026,.026,.58,10),metal,[.23,-.22,-1.35]).rotation.x=Math.PI/2;
+ add(new THREE.BoxGeometry(.035,.04,.18),rubber,[.23,-.33,-.8]); // magazine
+ add(new THREE.BoxGeometry(.055,.035,.16),sight,[.23,-.13,-.82]);
+ add(new THREE.BoxGeometry(.045,.04,.07),sight,[.23,-.12,-1.12]);
+ add(new THREE.BoxGeometry(.045,.055,.13),polymer,[.23,-.36,-.54]); // grip
+ const flashMat=new THREE.MeshBasicMaterial({color:0xffd27a,transparent:true,opacity:.95});
+ muzzleFlash=new THREE.Mesh(new THREE.ConeGeometry(.075,.22,8),flashMat);
+ muzzleFlash.rotation.x=-Math.PI/2;muzzleFlash.position.set(.23,-.22,-1.68);muzzleFlash.visible=false;root.add(muzzleFlash);
+ root.position.set(.0,-.02,-.02);
+ return {root,baseX:0,baseY:-.02,baseZ:-.02};
+}
+function installCombatHud(){
+ let hud=document.getElementById("combatHud");
+ if(!hud){hud=document.createElement("div");hud.id="combatHud";hud.innerHTML='<div class="ammoReadout"><span id="ammoNow">30</span><span class="ammoSlash"> / </span><span id="ammoReserve">120</span><small id="weaponLabel">ASSAULT RIFLE</small><small id="reloadLabel"></small></div><div class="hitMarker" id="hitMarker">×</div><button id="fireButton" type="button">FIRE</button><button id="reloadButton" type="button">RELOAD</button>';game.appendChild(hud);}
+ $("fireButton").onclick=fireWeapon;$("reloadButton").onclick=startReload;updateAmmoHud();
+}
+function updateAmmoHud(){
+ if($("ammoNow"))$("ammoNow").textContent=String(ammo);
+ if($("ammoReserve"))$("ammoReserve").textContent=String(reserveAmmo);
+ if($("reloadLabel"))$("reloadLabel").textContent=reloading?"RELOADING…":"";
+}
+function startReload(){
+ if(!joined||reloading||ammo>=30||reserveAmmo<=0)return;
+ reloading=true;reloadAt=performance.now()+1450;updateAmmoHud();
+}
+function fireWeapon(){
+ if(!joined||missionEnded||reloading||fireCooldown>0)return;
+ if(ammo<=0){startReload();return;}
+ ammo--;shotCount++;fireCooldown=.105;recoil=Math.min(recoil+.075,.22);
+ if(muzzleFlash){muzzleFlash.visible=true;muzzleFlash.scale.setScalar(.7+Math.random()*.7);}
+ if($("hitMarker")){$("hitMarker").classList.remove("show");void $("hitMarker").offsetWidth;$("hitMarker").classList.add("show");}
+ updateAmmoHud();
 }
 function addBox(x,y,z,sx,sy,sz,color){
  const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),new THREE.MeshStandardMaterial({color,roughness:.92}));
@@ -264,6 +319,10 @@ function finishMission(won){
 function frame(now){
  if(!joined||!renderer||!scene)return;
  const dt=Math.min((now-last)/1000,.05);last=now;
+ fireCooldown=Math.max(0,fireCooldown-dt);
+ if(muzzleFlash&&muzzleFlash.visible){muzzleFlash.visible=false;}
+ if(reloading&&now>=reloadAt){const need=30-ammo,loaded=Math.min(need,reserveAmmo);ammo+=loaded;reserveAmmo-=loaded;reloading=false;updateAmmoHud();}
+ recoil=THREE.MathUtils.damp(recoil,0,15,dt);
  if(!missionEnded&&!onlineMode){
   timeLeft-=dt;
   if(timeLeft<=0){timeLeft=0;finishMission(false);}
@@ -279,8 +338,18 @@ function frame(now){
   camera.position.x=Math.max(-19,Math.min(19,camera.position.x+dx));
   camera.position.z=Math.max(-19,Math.min(19,camera.position.z+dz));
  }
- camera.position.y=1.65;
+ walkPhase+=dt*(speed>0?Math.min(14,speed*2.2):1.4);
+ const bob=(speed>0?Math.sin(walkPhase)*.012:Math.sin(now*.0018)*.002);
+ camera.position.y=1.65+bob;
  camera.rotation.order="YXZ";camera.rotation.y=yaw;camera.rotation.x=pitch;
+ if(weapon){
+  const targetX=aiming?-.115:0,targetY=aiming?-.095:-.02,targetZ=aiming?.18:-.02;
+  weapon.root.position.x=THREE.MathUtils.damp(weapon.root.position.x,targetX,12,dt);
+  weapon.root.position.y=THREE.MathUtils.damp(weapon.root.position.y,targetY+bob*1.4,12,dt)-recoil*.28;
+  weapon.root.position.z=THREE.MathUtils.damp(weapon.root.position.z,targetZ,12,dt)+recoil;
+  weapon.root.rotation.x=THREE.MathUtils.damp(weapon.root.rotation.x,aiming?-.02:0,10,dt)+recoil*.8;
+  weapon.root.rotation.z=THREE.MathUtils.damp(weapon.root.rotation.z,speed>0?Math.sin(walkPhase)*.012:0,8,dt);
+ }
  me.position.set(camera.position.x,.8,camera.position.z);me.rotation.y=yaw;
  for(let i=0;i<objectives.length;i++){
   const o=objectives[i];
@@ -314,7 +383,8 @@ function leaveGame(){
  if(socket){const old=socket;socket=null;old.close();}
  if(renderer){renderer.dispose();renderer=null;}
  if(scene){scene.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material.dispose();}});}
- scene=null;camera=null;me=null;peers.clear();objectives=[];
+ scene=null;camera=null;me=null;peers.clear();objectives=[];weapon=null;muzzleFlash=null;reloading=false;ammo=30;reserveAmmo=120;aiming=false;
+ const combatHud=$("combatHud");if(combatHud)combatHud.remove();
  game.classList.add("hidden");lobby.classList.remove("hidden");
  $("onlinePanel").classList.add("hidden");
  statusEl.textContent="メニューに戻りました。";
