@@ -1,5 +1,5 @@
-import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
+import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/loaders/GLTFLoader.js";
 
 const $ = id => document.getElementById(id);
 const intro = $("intro"), lobby = $("lobby"), game = $("game"), statusEl = $("status");
@@ -151,6 +151,7 @@ function initScene(){
  }
  me=new THREE.Mesh(new THREE.CapsuleGeometry(.35,.9,4,8),mat(0x8db9d9));
  me.position.set(0,.8,15);scene.add(me);
+ spawnTrainingBots();
  const points=[new THREE.Vector3(-12,0,-9),new THREE.Vector3(12,0,-7),new THREE.Vector3(0,0,8)];
  objectives=points.map(p=>{
   const group=new THREE.Group();group.position.copy(p);
@@ -296,6 +297,8 @@ function updateTrainingBots(dt,now){
  }
 }
 function animateSoldier(s,dt,now){
+ // GLB characters use their authored animation clips; only procedural characters need pivoted limbs.
+ if(s.modelLoaded){s.root.rotation.y=THREE.MathUtils.dampAngle(s.root.rotation.y,s.targetYaw,12,dt);return;}
  const dx=s.root.position.x-s.lastX,dz=s.root.position.z-s.lastZ;
  const measured=dt>0?Math.hypot(dx,dz)/dt:0;
  s.speed=THREE.MathUtils.damp(s.speed,Math.min(measured,8),12,dt);
@@ -318,7 +321,7 @@ function updatePeers(list){
   obj.target.set(Number(p.x)||0,0,Number(p.z)||0);
   obj.targetYaw=Number(p.yaw)||0;
  }
- for(const [id,obj] of peers){if(!alive.has(id)){scene?.remove(obj.root);peers.delete(id);}}
+ for(const [id,obj] of peers){if(!alive.has(id)){scene?.remove(obj.root);if(obj.mixer)characterMixers.delete(obj);peers.delete(id);}}
  $("players").textContent="接続プレイヤー: "+(list.length||1);
 }
 function updateMissionHud(){
