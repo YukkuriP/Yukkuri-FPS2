@@ -16,18 +16,32 @@
 <div id="lobby" class="screen hidden">
   <header><div class="eyebrow">YUKKURI P PRODUCTION</div><h1>OPERATION: <span>IRON VEIL</span></h1><p>WEB EDITION · PLAYABLE TEST BUILD</p></header>
   <section class="panel">
-    <h2>ミッション選択</h2>
-    <p class="hint">ひとりで遊ぶ訓練モードはサーバー不要。オンラインは許可されたネットワークでサーバーに接続してください。</p>
+    <h2>ゲームモード選択</h2>
+    <p class="hint">プレイするモードを選んでください。オフラインはサーバー不要で開始できます。</p>
     <label>プレイヤー名<input id="playerName" maxlength="16" value="Operator"></label>
-    <button id="offlineBtn" class="primary">訓練ミッションを開始（オフライン）</button>
-    <details>
-      <summary>オンラインマルチプレイ</summary>
+    <div class="modeChoices">
+      <button id="offlineBtn" class="modeCard">
+        <span class="modeIcon">◈</span>
+        <strong>オフライン</strong>
+        <small>訓練ミッション · サーバー不要</small>
+        <span class="modeAction">訓練を開始 →</span>
+      </button>
+      <button id="showOnlineBtn" class="modeCard">
+        <span class="modeIcon">⌁</span>
+        <strong>オンライン</strong>
+        <small>ルームに接続してマルチプレイ</small>
+        <span class="modeAction">オンライン設定 →</span>
+      </button>
+    </div>
+    <section id="onlinePanel" class="onlinePanel hidden">
+      <div class="onlineHeading"><span class="onlineDot"></span><strong>ONLINE MULTIPLAYER</strong></div>
       <label>ルームコード<input id="roomCode" maxlength="12" value="IRON-01"></label>
       <label>通信サーバー（wss://）<input id="serverUrl" value="wss://iron-veil-server.onrender.com" placeholder="wss://your-server.example" autocomplete="url"></label>
-      <button id="joinBtn">オンラインロビーに接続</button>
-      <p id="status">オンライン未接続。オフライン訓練はいつでも開始できます。</p>
-    </details>
-    <p class="hint">操作：WASD / 矢印キーで移動、Shiftでダッシュ、マウスで視点。スマホは画面上の操作ボタンと右側ドラッグを使用。目標地点を順番に確保して、制限時間内のクリアを目指そう。</p>
+      <button id="joinBtn" class="joinAction">接続して参加</button>
+      <button id="backModesBtn" class="backAction">← モード選択に戻る</button>
+      <p id="status" role="status">未接続。サーバーとネットワークの接続を確認してください。</p>
+    </section>
+    <p class="hint controlsHint">操作：WASD / 矢印キーで移動、Shiftでダッシュ、マウスで視点。スマホは画面上の操作ボタンと右側ドラッグを使用。</p>
   </section>
   <footer>LOCAL TRAINING · OPTIONAL ONLINE MULTIPLAYER</footer>
 </div>
