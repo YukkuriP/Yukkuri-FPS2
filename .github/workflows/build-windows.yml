@@ -3,6 +3,8 @@ name: Build Windows App
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     tags:
       - "v*"
 
@@ -31,7 +33,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && 'v0.1.0-prototype' || github.ref_name }}
-          name: Operation: Iron Veil v0.1.0 Prototype
+          name: "Operation: Iron Veil v0.1.0 Prototype"
           body: |
             Prototype Windows build of Operation: Iron Veil.
 
