@@ -27,7 +27,7 @@ jobs:
         run: npm install
 
       - name: Build portable EXE and installer
-        run: npm run dist:win
+        run: npm run dist:win -- --publish never
 
       - name: Publish prototype release
         uses: softprops/action-gh-release@v2
