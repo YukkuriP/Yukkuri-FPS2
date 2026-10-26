@@ -56,9 +56,17 @@ Deploy it to a host that explicitly supports persistent WebSocket connections an
 Implemented:
 - Startup title and responsive lobby.
 - Offline three-objective timed training mission.
-- 3D arena with structures, lighting, fog, and objective markers.
+- 3D arena with textured ground, perimeter skyline, structures, lighting, fog, and objective markers.
+- Soft directional shadows and improved material response, with capped pixel ratio to limit GPU cost.
 - Desktop and touch movement, sprint, mouse/touch look, timer, and mission status.
 - Optional WebSocket room join and player-position synchronization.
+- Procedurally animated remote-player characters with smoothed network movement.
+- Three non-combat training drones that patrol around their home positions and observe the player nearby.
+- Optional GLB character-model loading with animation clips. If `web/assets/characters/operator.glb` is not present or fails to load, the game safely keeps its procedural character fallback.
+
+### Optional character model
+
+To use a custom model, add a properly licensed, web-compatible GLB file at `web/assets/characters/operator.glb`. The model should be upright with its feet near ground level; embedded animation clips are supported. No third-party model is bundled in this repository, so the fallback character remains active until you supply one.
 
 Still in development:
 - The browser edition is a prototype, not a finished AAA game.

@@ -1,9 +1,14 @@
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 const $ = id => document.getElementById(id);
 const intro = $("intro"), lobby = $("lobby"), game = $("game"), statusEl = $("status");
 let socket = null, renderer, scene, camera, me, yaw = 0, pitch = 0, last = performance.now();
 let peers = new Map(), move = {forward:false,back:false,left:false,right:false};
+const characterLoader = new GLTFLoader();
+const characterModelUrl = "./assets/characters/operator.glb";
+const characterMixers = new Set();
+let trainingBots = [];
 let touchLook = false, lastTouch = null, joined = false, onlineMode = false;
 let objectives = [], objectiveIndex = 0, timeLeft = 180, missionEnded = false;
 const playerId = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2);
@@ -111,14 +116,22 @@ function initScene(){
  scene.fog=new THREE.Fog(0x748795,25,75);
  camera=new THREE.PerspectiveCamera(76,innerWidth/innerHeight,.1,120);
  camera.position.set(0,1.65,15);
- renderer=new THREE.WebGLRenderer({canvas:$("view"),antialias:false,powerPreference:"low-power"});
- renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+ renderer=new THREE.WebGLRenderer({canvas:$("view"),antialias:true,powerPreference:"high-performance"});
+ renderer.shadowMap.enabled=true;
+ renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));
  renderer.setSize(innerWidth,innerHeight);
  renderer.outputColorSpace=THREE.SRGBColorSpace;
- scene.add(new THREE.HemisphereLight(0xd9e8f4,0x28333b,2.0));
- const sun=new THREE.DirectionalLight(0xffe7c4,2.0);sun.position.set(-12,18,8);scene.add(sun);
- const mat=(color,roughness=.88)=>new THREE.MeshStandardMaterial({color,roughness});
- const floor=new THREE.Mesh(new THREE.BoxGeometry(42,1,42),mat(0x35434b));floor.position.y=-.5;scene.add(floor);
+ scene.add(new THREE.HemisphereLight(0xd9e8f4,0x28333b,1.65));
+ const sun=new THREE.DirectionalLight(0xffe7c4,2.6);sun.position.set(-12,18,8);sun.castShadow=true;
+ sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-24;sun.shadow.camera.right=24;
+ sun.shadow.camera.top=24;sun.shadow.camera.bottom=-24;sun.shadow.bias=-0.00025;scene.add(sun);
+ const mat=(color,roughness=.88)=>new THREE.MeshStandardMaterial({color,roughness,metalness:.08});
+ const groundTexture=createGroundTexture();
+ groundTexture.wrapS=groundTexture.wrapT=THREE.RepeatWrapping;groundTexture.repeat.set(18,18);
+ const groundMat=new THREE.MeshStandardMaterial({color:0x66727a,map:groundTexture,roughness:1});
+ const floor=new THREE.Mesh(new THREE.BoxGeometry(42,1,42),groundMat);floor.position.y=-.5;floor.receiveShadow=true;scene.add(floor);
+ addEnvironmentDetails();
  for(let i=0;i<11;i++){
   const x=-16+i*3.2;
   addBox(x,1,-13,1.35,2,1.35,0x58666e);
@@ -138,6 +151,7 @@ function initScene(){
  }
  me=new THREE.Mesh(new THREE.CapsuleGeometry(.35,.9,4,8),mat(0x8db9d9));
  me.position.set(0,.8,15);scene.add(me);
+ spawnTrainingBots();
  const points=[new THREE.Vector3(-12,0,-9),new THREE.Vector3(12,0,-7),new THREE.Vector3(0,0,8)];
  objectives=points.map(p=>{
   const group=new THREE.Group();group.position.copy(p);
@@ -163,7 +177,7 @@ function createSoldier(color){
  const gear=new THREE.MeshStandardMaterial({color:0x46545b,roughness:.9});
  const skin=new THREE.MeshStandardMaterial({color:0xb88e70,roughness:.9});
  const part=(geometry,material,parent,position)=>{
-  const mesh=new THREE.Mesh(geometry,material);mesh.position.copy(position);parent.add(mesh);return mesh;
+  const mesh=new THREE.Mesh(geometry,material);mesh.position.copy(position);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;
  };
  // Ground-level root; pivoted limbs make the stride read clearly from other players' view.
  part(new THREE.CapsuleGeometry(.24,.48,4,8),cloth,root,new THREE.Vector3(0,1.12,0));
@@ -188,9 +202,103 @@ function createSoldier(color){
  part(new THREE.BoxGeometry(.12,.12,.72),dark,rifle,new THREE.Vector3(.12,1.27,-.22));
  part(new THREE.CylinderGeometry(.018,.018,.48,6),gear,rifle,new THREE.Vector3(.12,1.3,-.69)).rotation.x=Math.PI/2;
  rifle.rotation.x=-.08;
- return {root,leftArm,rightArm,leftLeg,rightLeg,rifle,target:new THREE.Vector3(),targetYaw:0,lastX:0,lastZ:0,speed:0,phase:0,cloth, dark,gear,skin};
+ const soldier={root,leftArm,rightArm,leftLeg,rightLeg,target:new THREE.Vector3(),targetYaw:0,lastX:0,lastZ:0,speed:0,phase:0,cloth,dark,gear,skin,mixer:null,modelLoaded:false};
+ loadExternalCharacter(soldier);
+ return soldier;
+}
+function loadExternalCharacter(soldier){
+ // If a licensed GLB is added at this path, it replaces the procedural fallback automatically.
+ characterLoader.load(characterModelUrl,gltf=>{
+  if(!scene||!soldier.root.parent)return;
+  const model=gltf.scene;
+  const bounds=new THREE.Box3().setFromObject(model);
+  const size=bounds.getSize(new THREE.Vector3());
+  const height=Math.max(size.y,.001);
+  model.scale.setScalar(1.82/height);
+  const center=bounds.getCenter(new THREE.Vector3());
+  model.position.set(-center.x*model.scale.x,-bounds.min.y*model.scale.y,-center.z*model.scale.z);
+  model.traverse(node=>{if(node.isMesh){node.castShadow=true;node.receiveShadow=true;node.frustumCulled=true;}});
+  for(const child of [...soldier.root.children]){
+   soldier.root.remove(child);
+   child.traverse?.(node=>{if(node.geometry)node.geometry.dispose();});
+  }
+  soldier.root.add(model);
+  if(gltf.animations?.length){
+   soldier.mixer=new THREE.AnimationMixer(model);
+   const clips=gltf.animations;
+   const preferred=clips.find(a=>/idle|stand/i.test(a.name))||clips[0];
+   soldier.mixer.clipAction(preferred).play();
+   soldier.animationClips=clips;
+   characterMixers.add(soldier);
+  }
+  soldier.modelLoaded=true;
+ },undefined,()=>{/* Keep the procedural character if no local model is installed. */});
+}
+function createGroundTexture(){
+ const canvas=document.createElement("canvas");canvas.width=canvas.height=256;
+ const ctx=canvas.getContext("2d");ctx.fillStyle="#66727a";ctx.fillRect(0,0,256,256);
+ let seed=127;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+ for(let i=0;i<1400;i++){const v=Math.floor(75+rand()*70);ctx.fillStyle="rgba("+v+","+v+","+v+","+(0.08+rand()*.12)+")";ctx.fillRect(rand()*256,rand()*256,1+rand()*3,1+rand()*2);}
+ ctx.strokeStyle="rgba(205,218,224,.12)";ctx.lineWidth=1;
+ for(let i=0;i<=256;i+=32){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,256);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(256,i);ctx.stroke();}
+ const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;return texture;
+}
+function addEnvironmentDetails(){
+ const stripeMat=new THREE.MeshStandardMaterial({color:0x9aa8ad,roughness:.8,metalness:.1});
+ for(let z=-10;z<=10;z+=4){
+  const stripe=new THREE.Mesh(new THREE.BoxGeometry(28,.025,.06),stripeMat);stripe.position.set(0,.025,z);stripe.receiveShadow=true;scene.add(stripe);
+ }
+ // Low skyline silhouettes make the training yard feel larger without expensive geometry.
+ for(let i=0;i<16;i++){
+  const x=-23+i*3.05;const h=3+(i*7%6);
+  const block=new THREE.Mesh(new THREE.BoxGeometry(2.4,h,1.8),new THREE.MeshStandardMaterial({color:i%2?0x303e49:0x3a4852,roughness:1}));
+  block.position.set(x,h/2-0.02,-22);scene.add(block);
+  for(let y=1;y<h-0.4;y+=1.15){
+   const windowMat=new THREE.MeshBasicMaterial({color:(i+y)%3===0?0xc9a46a:0x536b78});
+   const win=new THREE.Mesh(new THREE.PlaneGeometry(.22,.3),windowMat);win.position.set(x-.35,y,-21.08);scene.add(win);
+  }
+ }
+}
+function spawnTrainingBots(){
+ trainingBots=[];
+ const spots=[new THREE.Vector3(-7,0,-2),new THREE.Vector3(7,0,-7),new THREE.Vector3(5,0,9)];
+ for(let i=0;i<spots.length;i++){
+  const root=new THREE.Group();root.position.copy(spots[i]);
+  const shell=new THREE.MeshStandardMaterial({color:[0x75b9ca,0x90a8b8,0x9db8a4][i],roughness:.5,metalness:.35});
+  const dark=new THREE.MeshStandardMaterial({color:0x263741,roughness:.65,metalness:.2});
+  const body=new THREE.Mesh(new THREE.SphereGeometry(.38,16,12),shell);body.scale.set(1.25,.72,1);body.position.y=1.15;body.castShadow=true;root.add(body);
+  const eye=new THREE.Mesh(new THREE.SphereGeometry(.09,12,8),new THREE.MeshBasicMaterial({color:0x8eeaff}));eye.position.set(0,1.18,-.36);root.add(eye);
+  for(const side of [-1,1]){
+   const pod=new THREE.Mesh(new THREE.CylinderGeometry(.07,.11,.48,8),dark);pod.position.set(side*.42,.92,0);pod.rotation.z=side*.2;root.add(pod);
+   const light=new THREE.PointLight(0x66d9ff,.6,2);light.position.set(side*.42,1.0,-.15);root.add(light);
+  }
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(.48,.025,6,24),new THREE.MeshBasicMaterial({color:0x67cce5,transparent:true,opacity:.8}));ring.rotation.x=Math.PI/2;ring.position.y=.65;root.add(ring);
+  scene.add(root);
+  trainingBots.push({root,home:spots[i].clone(),phase:i*2.1,state:"patrol",lastSeen:null,speed:1.1+i*.15});
+ }
+}
+function updateTrainingBots(dt,now){
+ for(const bot of trainingBots){
+  const p=bot.root.position,player=new THREE.Vector3(camera.position.x,0,camera.position.z);
+  const distance=p.distanceTo(player);
+  if(distance<7) {bot.state="observe";bot.lastSeen=player.clone();}
+  else if(bot.state==="observe"&&bot.lastSeen&&p.distanceTo(bot.lastSeen)>1.2)bot.state="return";
+  let target;
+  if(bot.state==="observe")target=bot.lastSeen;
+  else if(bot.state==="return")target=bot.home;
+  else target=new THREE.Vector3(bot.home.x+Math.sin(now*.00045+bot.phase)*2,0,bot.home.z+Math.cos(now*.0004+bot.phase)*2);
+  const delta=target.clone().sub(p);delta.y=0;
+  if(delta.length()>.15){
+   const step=Math.min(delta.length(),bot.speed*dt);delta.normalize().multiplyScalar(step);p.add(delta);
+   bot.root.rotation.y=Math.atan2(delta.x,delta.z);
+  }else if(bot.state==="return")bot.state="patrol";
+  bot.root.position.y=0.08+Math.sin(now*.002+bot.phase)*.12;
+  bot.root.children[0].rotation.z=Math.sin(now*.003+bot.phase)*.06;
+ }
 }
 function animateSoldier(s,dt,now){
+ // GLB characters use their authored animation clips; only procedural characters need pivoted limbs.
+ if(s.modelLoaded){s.root.rotation.y=THREE.MathUtils.dampAngle(s.root.rotation.y,s.targetYaw,12,dt);return;}
  const dx=s.root.position.x-s.lastX,dz=s.root.position.z-s.lastZ;
  const measured=dt>0?Math.hypot(dx,dz)/dt:0;
  s.speed=THREE.MathUtils.damp(s.speed,Math.min(measured,8),12,dt);
@@ -213,7 +321,7 @@ function updatePeers(list){
   obj.target.set(Number(p.x)||0,0,Number(p.z)||0);
   obj.targetYaw=Number(p.yaw)||0;
  }
- for(const [id,obj] of peers){if(!alive.has(id)){scene?.remove(obj.root);peers.delete(id);}}
+ for(const [id,obj] of peers){if(!alive.has(id)){scene?.remove(obj.root);if(obj.mixer)characterMixers.delete(obj);peers.delete(id);}}
  $("players").textContent="接続プレイヤー: "+(list.length||1);
 }
 function updateMissionHud(){
@@ -260,6 +368,8 @@ function frame(now){
    else $("objectiveBanner").textContent="目標確保！ 次の地点へ移動せよ";
   }
  }
+ updateTrainingBots(dt,now);
+ for(const soldier of characterMixers)soldier.mixer?.update(dt);
  // Smooth remote-player motion between network snapshots instead of teleporting each update.
  for(const obj of peers.values()){
   obj.root.position.x=THREE.MathUtils.damp(obj.root.position.x,obj.target.x,14,dt);
@@ -277,7 +387,7 @@ function leaveGame(){
  if(socket){const old=socket;socket=null;old.close();}
  if(renderer){renderer.dispose();renderer=null;}
  if(scene){scene.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material.dispose();}});}
- scene=null;camera=null;me=null;peers.clear();objectives=[];
+ scene=null;camera=null;me=null;peers.clear();objectives=[];trainingBots=[];characterMixers.clear();
  game.classList.add("hidden");lobby.classList.remove("hidden");
  $("onlinePanel").classList.add("hidden");
  statusEl.textContent="メニューに戻りました。";
