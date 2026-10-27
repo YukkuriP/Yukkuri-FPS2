@@ -1,0 +1,39 @@
+name: Project Static Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Godot 4.7.2
+        uses: chickensoft/setup-godot@v2
+        with:
+          godot-version: 4.7.2
+          use-dotnet: false
+          include-templates: false
+
+      - name: Import project and parse GDScript
+        run: godot --headless --editor --path . --quit
+
+      - name: Check JavaScript syntax
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: node --check web/client.js
+      - run: node --check desktop/main.cjs
+
+      - name: Check Python syntax
+        run: python -m compileall -q server
