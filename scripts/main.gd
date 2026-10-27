@@ -732,6 +732,12 @@ func _physics_process(delta: float) -> void:
 	weapon_kick = move_toward(weapon_kick, 0.0, delta * 2.8)
 	if is_instance_valid(weapon_root):
 		weapon_root.position = Vector3(0.29, -0.28 + weapon_kick * 0.04, -0.48 + weapon_kick * 0.12)
+		if reloading:
+			var reload_phase := 1.65 - reload_left
+			weapon_root.position.y = -0.28 + sin(reload_phase * PI / 1.65) * 0.13
+			weapon_root.rotation.z = 0.18
+		else:
+			weapon_root.rotation.z = 0.0
 	if is_instance_valid(hitmarker):
 		hitmarker.modulate.a = clampf(hitmarker_left * 5.0, 0.0, 1.0)
 	if reloading:
