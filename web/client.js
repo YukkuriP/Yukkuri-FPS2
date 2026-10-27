@@ -9,8 +9,7 @@ const characterLoader = new GLTFLoader();
 const characterModelUrl = "./assets/characters/operator.glb";
 const characterMixers = new Set();
 let trainingBots = [];
-let viewWeapon = null, muzzleFlash = null, weaponKick = 0, lastShotAt = 0, shotsFired = 0;
-const shotCooldownMs = 115;
+let viewArms = null, cameraBob = 0;
 let touchLook = false, lastTouch = null, joined = false, onlineMode = false;
 let objectives = [], objectiveIndex = 0, timeLeft = 180, missionEnded = false;
 const playerId = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2);
@@ -43,8 +42,6 @@ $("view").addEventListener("click",()=>{
  if(!matchMedia("(pointer:coarse)").matches && document.pointerLockElement!==$("view"))$("view").requestPointerLock?.();
 });
 $("view").addEventListener("contextmenu",e=>e.preventDefault());
-$("view").addEventListener("pointerdown",e=>{if(e.button===0 && joined)fireWeapon();});
-window.addEventListener("keydown",e=>{if((e.code==="Space"||e.code==="Enter")&&joined){e.preventDefault();fireWeapon();}});
 document.addEventListener("mousemove",e=>{
  if(joined && document.pointerLockElement===$("view")){
   yaw-=e.movementX*.002;
@@ -116,7 +113,7 @@ function beginGame(){
 }
 function initScene(){
  if(renderer){renderer.dispose();renderer=null;}
- viewWeapon=null;muzzleFlash=null;shotsFired=0;weaponKick=0;
+ viewArms=null;cameraBob=0;
  scene=new THREE.Scene();
  scene.background=new THREE.Color(0x748795);
  scene.fog=new THREE.Fog(0x748795,25,75);
@@ -130,7 +127,7 @@ function initScene(){
  renderer.setSize(innerWidth,innerHeight);
  renderer.outputColorSpace=THREE.SRGBColorSpace;
  scene.add(new THREE.HemisphereLight(0xd9e8f4,0x28333b,1.65));
- createViewWeapon();
+ createFirstPersonArms();
  const sun=new THREE.DirectionalLight(0xffe7c4,2.6);sun.position.set(-12,18,8);sun.castShadow=true;
  sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-24;sun.shadow.camera.right=24;
  sun.shadow.camera.top=24;sun.shadow.camera.bottom=-24;sun.shadow.bias=-0.00025;scene.add(sun);
@@ -173,51 +170,21 @@ function initScene(){
  window.addEventListener("resize",resize);
  requestAnimationFrame(frame);
 }
-function createViewWeapon(){
+function createFirstPersonArms(){
  if(!camera)return;
- const root=new THREE.Group();root.name="FirstPersonRifle";
- root.position.set(.34,-.31,-.58);root.rotation.set(-.04,-.08,-.02);camera.add(root);
- const metal=new THREE.MeshStandardMaterial({color:0x202a30,metalness:.78,roughness:.3});
- const polymer=new THREE.MeshStandardMaterial({color:0x303b40,metalness:.18,roughness:.72});
- const edge=new THREE.MeshStandardMaterial({color:0x71818a,metalness:.72,roughness:.28});
- const glass=new THREE.MeshStandardMaterial({color:0x14252a,metalness:.25,roughness:.18});
- const add=(geo,mat,pos,rot)=>{const m=new THREE.Mesh(geo,mat);m.position.set(...pos);if(rot)m.rotation.set(...rot);m.castShadow=false;m.receiveShadow=false;root.add(m);return m;};
- // Layered receiver, handguard, barrel, optic and magazine create a readable first-person silhouette.
- add(new THREE.BoxGeometry(.19,.17,.42),polymer,[0,0,0]);
- add(new THREE.BoxGeometry(.205,.075,.22),metal,[0,.09,-.035]);
- add(new THREE.BoxGeometry(.145,.115,.36),metal,[0,.015,-.32]);
- add(new THREE.CylinderGeometry(.027,.027,.48,10),edge,[0,.018,-.62],[Math.PI/2,0,0]);
- add(new THREE.BoxGeometry(.095,.16,.13),polymer,[0,-.145,.035],[-.12,0,0]);
- add(new THREE.BoxGeometry(.115,.2,.105),metal,[0,-.205,-.035],[.12,0,0]);
- add(new THREE.BoxGeometry(.15,.055,.22),polymer,[0,-.005,.28]);
- // Picatinny rail and grooves add highlights without heavy geometry.
- add(new THREE.BoxGeometry(.12,.025,.29),edge,[0,.115,-.23]);
- for(let i=0;i<7;i++)add(new THREE.BoxGeometry(.13,.012,.018),metal,[0,.132,-.12-i*.037]);
- // Compact optic with dark lens and raised mount.
- add(new THREE.BoxGeometry(.09,.045,.13),metal,[0,.16,-.16]);
- add(new THREE.BoxGeometry(.065,.07,.075),polymer,[0,.207,-.16]);
- add(new THREE.BoxGeometry(.052,.05,.012),glass,[0,.21,-.118]);
- add(new THREE.BoxGeometry(.045,.05,.012),glass,[0,.21,-.202]);
- // Warm front sight and small indicator details.
- add(new THREE.BoxGeometry(.022,.03,.025),edge,[0,.08,-.51]);
- const flashMat=new THREE.MeshBasicMaterial({color:0xffd28a,transparent:true,opacity:.95,side:THREE.DoubleSide});
- muzzleFlash=new THREE.Mesh(new THREE.ConeGeometry(.09,.28,8),flashMat);
- muzzleFlash.rotation.x=-Math.PI/2;muzzleFlash.position.set(0,.018,-.91);muzzleFlash.visible=false;root.add(muzzleFlash);
- viewWeapon=root;
-}
-function fireWeapon(){
- const now=performance.now();
- if(!joined||missionEnded||now-lastShotAt<shotCooldownMs||!viewWeapon)return;
- lastShotAt=now;shotsFired++;weaponKick=Math.min(weaponKick+.09,.22);
- if(muzzleFlash){muzzleFlash.visible=true;muzzleFlash.scale.set(.65+Math.random()*.65,.65+Math.random()*.65,.65+Math.random()*.65);}
- // The training drones react visually to nearby fire; this prototype does not yet implement damage.
- for(const bot of trainingBots){
-  const delta=bot.root.position.clone().add(new THREE.Vector3(0,1,0)).sub(camera.position);
-  const distance=delta.length();delta.normalize();
-  const aim=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
-  if(distance<24&&aim.dot(delta)>.992){bot.root.userData.flashUntil=now+100;bot.root.scale.setScalar(1.08);}
- }
- const hud=$("ammoHud");if(hud)hud.textContent="SEMI / "+String(30-(shotsFired%30)).padStart(2,"0")+" | ∞";
+ const root=new THREE.Group();root.name="FirstPersonArms";
+ root.position.set(.29,-.34,-.42);camera.add(root);
+ const sleeve=new THREE.MeshStandardMaterial({color:0x394951,roughness:.94});
+ const glove=new THREE.MeshStandardMaterial({color:0x20282d,roughness:.88});
+ const seam=new THREE.MeshStandardMaterial({color:0x657780,roughness:.86});
+ const add=(geo,mat,pos,rot)=>{const m=new THREE.Mesh(geo,mat);m.position.set(...pos);if(rot)m.rotation.set(...rot);root.add(m);return m;};
+ add(new THREE.CapsuleGeometry(.105,.39,4,8),sleeve,[.11,-.11,.02],[.12,0,-.34]);
+ add(new THREE.CapsuleGeometry(.09,.31,4,8),sleeve,[-.17,-.15,.12],[.2,0,.42]);
+ add(new THREE.SphereGeometry(.105,12,10),glove,[.18,-.29,-.06]);
+ add(new THREE.SphereGeometry(.095,12,10),glove,[-.24,-.29,.04]);
+ add(new THREE.BoxGeometry(.12,.025,.15),seam,[.11,-.19,.02],[.12,0,-.34]);
+ add(new THREE.BoxGeometry(.12,.025,.15),seam,[-.17,-.22,.12],[.2,0,.42]);
+ viewArms=root;
 }
 function addBox(x,y,z,sx,sy,sz,color){
  const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),new THREE.MeshStandardMaterial({color,roughness:.92}));
@@ -251,11 +218,6 @@ function createSoldier(color){
  for(const [x,leg] of [[-.14,leftLeg],[.14,rightLeg]]){
   part(new THREE.BoxGeometry(.19,.12,.31),dark,leg,new THREE.Vector3(0,-.48,-.055));
  }
- // A simple low-poly rifle silhouette held across the chest.
- const rifle=new THREE.Group();root.add(rifle);
- part(new THREE.BoxGeometry(.12,.12,.72),dark,rifle,new THREE.Vector3(.12,1.27,-.22));
- part(new THREE.CylinderGeometry(.018,.018,.48,6),gear,rifle,new THREE.Vector3(.12,1.3,-.69)).rotation.x=Math.PI/2;
- rifle.rotation.x=-.08;
  const soldier={root,leftArm,rightArm,leftLeg,rightLeg,target:new THREE.Vector3(),targetYaw:0,lastX:0,lastZ:0,speed:0,phase:0,cloth,dark,gear,skin,mixer:null,modelLoaded:false};
  loadExternalCharacter(soldier);
  return soldier;
@@ -406,8 +368,7 @@ function frame(now){
  }
  camera.position.y=1.65;
  camera.rotation.order="YXZ";camera.rotation.y=yaw;camera.rotation.x=pitch;
- if(viewWeapon){weaponKick=THREE.MathUtils.damp(weaponKick,0,15,dt);viewWeapon.position.x=.34+Math.sin(now*.006)*(speed>0?.012:.003);viewWeapon.position.y=-.31+Math.abs(Math.sin(now*.009))*(speed>0?.012:.002)-weaponKick;viewWeapon.rotation.x=-.04+weaponKick*.8;viewWeapon.rotation.z=-.02+Math.sin(now*.006)*(speed>0?.018:.002);}
- if(muzzleFlash&&muzzleFlash.visible&&now-lastShotAt>55)muzzleFlash.visible=false;
+ if(viewArms){cameraBob=THREE.MathUtils.damp(cameraBob,speed>0?.018:0,10,dt);viewArms.position.y=-.34+Math.abs(Math.sin(now*.009))*cameraBob;viewArms.position.x=.29+Math.sin(now*.006)*cameraBob*.6;viewArms.rotation.z=Math.sin(now*.006)*cameraBob*1.6;}
  me.position.set(camera.position.x,.8,camera.position.z);me.rotation.y=yaw;
  for(let i=0;i<objectives.length;i++){
   const o=objectives[i];
