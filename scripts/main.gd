@@ -23,6 +23,8 @@ var weapon_root: Node3D
 var hud_label: Label
 var ammo_label: Label
 var status_label: Label
+var score_label: Label
+var damage_overlay: ColorRect
 var crosshair: Label
 var hitmarker: Label
 var look_yaw := 0.0
@@ -34,9 +36,14 @@ var reloading := false
 var reload_left := 0.0
 var fire_cooldown := 0.0
 var health := 100
-var targets_remaining := 5
-var mission_time := 180.0
+var targets_remaining := 8
+var mission_time := 240.0
 var mission_complete := false
+var mission_failed := false
+var score := 0
+var kill_streak := 0
+var best_streak := 0
+var damage_flash_left := 0.0
 var target_nodes: Array[Node3D] = []
 var objective_nodes: Array[Node3D] = []
 var hitmarker_left := 0.0
@@ -138,7 +145,7 @@ func _show_lobby() -> void:
 	welcome.add_theme_color_override("font_color", TEXT)
 	root_ui.add_child(welcome)
 	var description := Label.new()
-	description.text = "移動・照準・射撃・リロードを試し、5体の訓練兵を制圧する。\n今後のキャンペーン開発に向けたオフライン戦闘テスト。"
+	description.text = "敵兵が追跡・射撃してくる戦闘区域を突破せよ。\nヘッドショットと連続撃破でスコアを稼ぎ、4分以内に全員を制圧。"
 	description.position = Vector2(52, 222)
 	description.size = Vector2(690, 62)
 	description.add_theme_font_size_override("font_size", 16)
@@ -163,7 +170,7 @@ func _show_lobby() -> void:
 	panel_title.add_theme_color_override("font_color", ACCENT)
 	root_ui.add_child(panel_title)
 	var briefing := Label.new()
-	briefing.text = "01  /  SECTOR: GREYBOX\n      Training facility\n\n02  /  OBJECTIVE\n      Eliminate all 5 targets\n\n03  /  RULES OF ENGAGEMENT\n      Offline • No network required\n\n04  /  LOADOUT\n      5.56 mm assault rifle"
+	briefing.text = "01  /  SECTOR: GREYBOX\n      Hostile forces have occupied the yard\n\n02  /  OBJECTIVE\n      Eliminate 8 hostile operators\n\n03  /  THREAT\n      Enemies advance and return fire\n\n04  /  LOADOUT\n      5.56 mm carbine • 30 + 180 rounds"
 	briefing.position = Vector2(820, 230)
 	briefing.size = Vector2(330, 230)
 	briefing.add_theme_font_size_override("font_size", 15)
@@ -245,12 +252,17 @@ func _show_settings() -> void:
 func _start_training() -> void:
 	in_training = true
 	ammo = 30
-	reserve_ammo = 120
+	reserve_ammo = 180
 	reloading = false
 	health = 100
-	targets_remaining = 5
-	mission_time = 180.0
+	targets_remaining = 8
+	mission_time = 240.0
 	mission_complete = false
+	mission_failed = false
+	score = 0
+	kill_streak = 0
+	best_streak = 0
+	damage_flash_left = 0.0
 	target_nodes.clear()
 	objective_nodes.clear()
 	_clear_ui()
@@ -279,7 +291,11 @@ func _build_training_world() -> void:
 	env.ambient_light_energy = 0.65
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_BG
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.0
+	env.tonemap_exposure = 1.08
+	env.glow_enabled = true
+	env.glow_intensity = 0.45
+	env.glow_strength = 0.8
+	env.glow_bloom = 0.08
 	env.fog_enabled = true
 	env.fog_light_color = Color("#a6b0b0")
 	env.fog_density = 0.006
@@ -492,7 +508,7 @@ func _add_weapon_box(pos: Vector3, size: Vector3, color: Color, roughness: float
 	weapon_root.add_child(instance)
 
 func _spawn_training_targets() -> void:
-	var positions := [Vector3(-14, 0, -9), Vector3(-5, 0, -17), Vector3(5, 0, -15), Vector3(14, 0, -7), Vector3(0, 0, 1)]
+	var positions := [Vector3(-14, 0, -9), Vector3(-5, 0, -17), Vector3(5, 0, -15), Vector3(14, 0, -7), Vector3(0, 0, 1), Vector3(-23, 0, 8), Vector3(24, 0, -3), Vector3(8, 0, 20)]
 	for i in range(positions.size()):
 		var target := _make_soldier_target(i + 1)
 		target.position = positions[i]
@@ -507,6 +523,8 @@ func _make_soldier_target(number: int) -> Node3D:
 	body.add_to_group("training_target")
 	body.set_meta("health", 100)
 	body.set_meta("root_target", soldier)
+	body.set_meta("is_enemy", true)
+	soldier.set_meta("attack_cooldown", 0.8 + float(number % 3) * 0.45)
 	soldier.add_child(body)
 	var collision := CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
@@ -566,7 +584,7 @@ func _add_training_overlay() -> void:
 	top.size = Vector2(1280, 54)
 	root_ui.add_child(top)
 	hud_label = Label.new()
-	hud_label.text = "IRON VEIL  /  TRAINING SECTOR"
+	hud_label.text = "IRON VEIL  /  HOSTILE CONTACT"
 	hud_label.position = Vector2(22, 14)
 	hud_label.size = Vector2(600, 28)
 	hud_label.add_theme_font_size_override("font_size", 15)
@@ -614,10 +632,22 @@ func _add_training_overlay() -> void:
 	ammo_label.add_theme_font_size_override("font_size", 25)
 	ammo_label.add_theme_color_override("font_color", TEXT)
 	root_ui.add_child(ammo_label)
+	score_label = Label.new()
+	score_label.position = Vector2(22, 610)
+	score_label.size = Vector2(380, 44)
+	score_label.add_theme_font_size_override("font_size", 17)
+	score_label.add_theme_color_override("font_color", ACCENT)
+	root_ui.add_child(score_label)
+	damage_overlay = ColorRect.new()
+	damage_overlay.color = Color("#ff263f")
+	damage_overlay.modulate.a = 0.0
+	damage_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	damage_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root_ui.add_child(damage_overlay)
 	var controls := Label.new()
-	controls.text = "WASD MOVE    SHIFT SPRINT    LMB FIRE    R RELOAD    ESC MENU"
+	controls.text = "WASD MOVE    SHIFT SPRINT    LMB FIRE    R RELOAD    ESC MENU    ENTER RETRY"
 	controls.position = Vector2(22, 674)
-	controls.size = Vector2(760, 24)
+	controls.size = Vector2(900, 24)
 	controls.add_theme_font_size_override("font_size", 12)
 	controls.add_theme_color_override("font_color", MUTED)
 	root_ui.add_child(controls)
@@ -629,11 +659,16 @@ func _update_hud() -> void:
 	if is_instance_valid(ammo_label):
 		ammo_label.text = "RELOADING" if reloading else "%02d  /  %03d" % [ammo, reserve_ammo]
 	if is_instance_valid(status_label):
-		if mission_complete:
-			status_label.text = "MISSION COMPLETE  •  ALL TARGETS CLEARED"
+		if mission_failed:
+			status_label.text = "MISSION FAILED  •  PRESS ENTER TO RETRY"
+			status_label.add_theme_color_override("font_color", RED)
+		elif mission_complete:
+			status_label.text = "SECTOR CLEARED  •  PRESS ENTER TO PLAY AGAIN"
 			status_label.add_theme_color_override("font_color", GREEN)
 		else:
-			status_label.text = "TARGETS  %d / 5    •    TIME  %03d" % [targets_remaining, int(ceil(mission_time))]
+			status_label.text = "HOSTILES  %d / 8    •    TIME  %03d" % [targets_remaining, int(ceil(mission_time))]
+	if is_instance_valid(score_label):
+		score_label.text = "SCORE  %07d   •   STREAK x%d   •   BEST x%d" % [score, kill_streak, best_streak]
 
 func _return_to_lobby() -> void:
 	in_training = false
@@ -659,6 +694,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				_return_to_lobby()
 		elif event.keycode == KEY_R:
 			_start_reload()
+		elif event.keycode == KEY_ENTER and (mission_complete or mission_failed):
+			_start_training()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		if not mouse_captured:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -690,11 +727,11 @@ func _physics_process(delta: float) -> void:
 			reserve_ammo -= loaded
 			reloading = false
 	_update_hud()
-	if not mission_complete:
+	if not mission_complete and not mission_failed:
 		mission_time = maxf(0.0, mission_time - delta)
 		if mission_time <= 0.0:
-			status_label.text = "TIME EXPIRED  •  RESET FROM LOBBY"
-			status_label.add_theme_color_override("font_color", RED)
+			mission_failed = true
+	_update_hud()
 	var input_dir := Vector2(
 		Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
 		Input.get_action_strength("move_back") - Input.get_action_strength("move_forward")
@@ -723,7 +760,7 @@ func _start_reload() -> void:
 	reload_left = 1.65
 
 func _fire_weapon() -> void:
-	if not in_training or reloading or fire_cooldown > 0.0 or mission_complete:
+	if not in_training or reloading or fire_cooldown > 0.0 or mission_complete or mission_failed:
 		return
 	if ammo <= 0:
 		_start_reload()
@@ -750,27 +787,79 @@ func _fire_weapon() -> void:
 		var collider := result.get("collider") as Node
 		if collider is Node and collider.is_in_group("training_target"):
 			var target_root := collider.get_meta("root_target") as Node3D
-			var target_health: int = int(collider.get_meta("health")) - 34
+			var hit_position: Vector3 = result.get("position", to) as Vector3
+			var headshot := hit_position.y - target_root.global_position.y > 1.55
+			var damage := 100 if headshot else 34
+			var target_health: int = int(collider.get_meta("health")) - damage
 			collider.set_meta("health", target_health)
-			hitmarker_left = 0.2
+			score += 25 if headshot else 10
+			hitmarker.text = "✦" if headshot else "×"
+			hitmarker.add_theme_color_override("font_color", Color("#ffd783") if headshot else Color.WHITE)
+			hitmarker_left = 0.28
+			_spawn_hit_effect(hit_position, headshot)
 			if target_health <= 0:
 				targets_remaining = maxi(0, targets_remaining - 1)
 				target_nodes.erase(target_root)
+				kill_streak += 1
+				best_streak = maxi(best_streak, kill_streak)
+				score += 250 + kill_streak * 50
 				var death_tween := create_tween()
 				death_tween.tween_property(target_root, "scale", Vector3(0.01, 0.01, 0.01), 0.16)
 				death_tween.tween_callback(target_root.queue_free)
 				if targets_remaining == 0:
 					mission_complete = true
+		else:
+			kill_streak = 0
 	_update_hud()
 
-func _process(_delta: float) -> void:
+func _spawn_hit_effect(position: Vector3, headshot: bool) -> void:
+	var flash := OmniLight3D.new()
+	flash.light_color = Color("#9fe6ff") if headshot else Color("#ffc078")
+	flash.light_energy = 1.7 if headshot else 0.9
+	flash.omni_range = 2.2
+	flash.position = position
+	world.add_child(flash)
+	var tween := create_tween()
+	tween.tween_property(flash, "light_energy", 0.0, 0.12)
+	tween.tween_callback(flash.queue_free)
+
+func _damage_player(amount: int) -> void:
+	if mission_complete or mission_failed:
+		return
+	health = maxi(0, health - amount)
+	damage_flash_left = 0.48
+	if health <= 0:
+		mission_failed = true
+	_update_hud()
+
+func _process(delta: float) -> void:
 	if not in_training or not is_instance_valid(player):
 		return
-	# Simple proximity-based training targets keep the scene lightweight.
+	damage_flash_left = maxf(0.0, damage_flash_left - delta)
+	if is_instance_valid(damage_overlay):
+		damage_overlay.modulate.a = clampf(damage_flash_left * 0.6, 0.0, 0.28)
+	if mission_complete or mission_failed:
+		return
+	# Enemies push toward the player, pause to fire, and turn to face the player.
 	for i in range(target_nodes.size()):
 		var target := target_nodes[i]
-		if is_instance_valid(target):
-			var target_body := target.get_node_or_null("HitBody") as StaticBody3D
-			if target_body:
-				target_body.rotation.y = sin(Time.get_ticks_msec() * 0.00035 + float(i)) * 0.16
+		if not is_instance_valid(target):
+			continue
+		var target_body := target.get_node_or_null("HitBody") as StaticBody3D
+		if not is_instance_valid(target_body):
+			continue
+		var to_player: Vector3 = player.global_position - target.global_position
+		to_player.y = 0.0
+		var distance := to_player.length()
+		if distance > 0.01:
+			target_body.rotation.y = atan2(-to_player.x, -to_player.z)
+		if distance > 7.0:
+			var move_step := minf(distance - 6.5, (1.15 + float(i % 3) * 0.18) * delta)
+			target.global_position += to_player.normalized() * move_step
+		var cooldown := float(target.get_meta("attack_cooldown", 1.0)) - delta
+		if distance < 24.0 and cooldown <= 0.0:
+			_damage_player(6 + (i % 3) * 2)
+			cooldown = 1.0 + float(i % 3) * 0.25
+		target.set_meta("attack_cooldown", cooldown)
+	_update_hud()
 
