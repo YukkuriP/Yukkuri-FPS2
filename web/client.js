@@ -296,15 +296,42 @@ function spawnTrainingBots(){
  const spots=[new THREE.Vector3(-7,0,-2),new THREE.Vector3(7,0,-7),new THREE.Vector3(5,0,9)];
  for(let i=0;i<spots.length;i++){
   const root=new THREE.Group();root.position.copy(spots[i]);
-  const shell=new THREE.MeshStandardMaterial({color:[0x75b9ca,0x90a8b8,0x9db8a4][i],roughness:.5,metalness:.35});
-  const dark=new THREE.MeshStandardMaterial({color:0x263741,roughness:.65,metalness:.2});
-  const body=new THREE.Mesh(new THREE.SphereGeometry(.38,16,12),shell);body.scale.set(1.25,.72,1);body.position.y=1.15;body.castShadow=true;root.add(body);
-  const eye=new THREE.Mesh(new THREE.SphereGeometry(.09,12,8),new THREE.MeshBasicMaterial({color:0x8eeaff}));eye.position.set(0,1.18,-.36);root.add(eye);
+  // Human-shaped opposing infantry: separate head, helmet, torso, plate carrier, limbs, boots and rifle.
+  const uniform=new THREE.MeshStandardMaterial({color:[0x4b5946,0x5d5545,0x46534f][i],roughness:.96});
+  const armor=new THREE.MeshStandardMaterial({color:0x252f30,roughness:.88});
+  const fabric=new THREE.MeshStandardMaterial({color:0x343e36,roughness:.94});
+  const skin=new THREE.MeshStandardMaterial({color:0x9a7258,roughness:.9});
+  const metal=new THREE.MeshStandardMaterial({color:0x171d20,roughness:.52,metalness:.55});
+  const addPart=(geometry,material,position,rotation=[0,0,0])=>{
+   const mesh=new THREE.Mesh(geometry,material);mesh.position.set(...position);mesh.rotation.set(...rotation);mesh.castShadow=true;mesh.receiveShadow=true;root.add(mesh);return mesh;
+  };
+  // torso and tactical vest
+  const torso=addPart(new THREE.BoxGeometry(.48,.62,.27),uniform,[0,1.18,0]);
+  addPart(new THREE.BoxGeometry(.43,.43,.30),armor,[0,1.2,-.025]);
+  for(let p=0;p<3;p++)addPart(new THREE.BoxGeometry(.095,.12,.055),fabric,[-.13+p*.13,1.17,-.19]);
+  // neck, face and helmet
+  addPart(new THREE.CylinderGeometry(.07,.075,.12,8),skin,[0,1.56,0]);
+  addPart(new THREE.SphereGeometry(.135,12,10),skin,[0,1.69,-.005]);
+  addPart(new THREE.SphereGeometry(.15,12,8,0,Math.PI*2,0,Math.PI*.58),armor,[0,1.73,0]);
+  addPart(new THREE.BoxGeometry(.28,.045,.19),armor,[0,1.68,-.045]);
+  // shoulder pads and articulated-looking arms
   for(const side of [-1,1]){
-   const pod=new THREE.Mesh(new THREE.CylinderGeometry(.07,.11,.48,8),dark);pod.position.set(side*.42,.92,0);pod.rotation.z=side*.2;root.add(pod);
-   const light=new THREE.PointLight(0x66d9ff,.6,2);light.position.set(side*.42,1.0,-.15);root.add(light);
+   addPart(new THREE.SphereGeometry(.105,10,8),fabric,[side*.3,1.39,0]);
+   addPart(new THREE.BoxGeometry(.14,.34,.15),uniform,[side*.31,1.19,-.015],[0,0,side*.08]);
+   addPart(new THREE.BoxGeometry(.115,.25,.12),uniform,[side*.28,.94,-.07],[side*.08,0,side*-.04]);
+   addPart(new THREE.SphereGeometry(.065,8,8),armor,[side*.28,.79,-.09]);
+   // cargo pockets on belt
+   addPart(new THREE.BoxGeometry(.13,.13,.09),fabric,[side*.16,.83,-.015]);
+   // legs and boots
+   addPart(new THREE.BoxGeometry(.18,.42,.2),uniform,[side*.13,.57,0],[0,0,side*.025]);
+   addPart(new THREE.BoxGeometry(.19,.12,.29),armor,[side*.13,.32,-.045]);
   }
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(.48,.025,6,24),new THREE.MeshBasicMaterial({color:0x67cce5,transparent:true,opacity:.8}));ring.rotation.x=Math.PI/2;ring.position.y=.65;root.add(ring);
+  // rifle held across the chest
+  addPart(new THREE.BoxGeometry(.105,.095,.57),metal,[.08,1.04,-.25],[.08,0,-.16]);
+  addPart(new THREE.BoxGeometry(.09,.15,.12),armor,[.015,.94,-.13],[.12,0,-.16]);
+  addPart(new THREE.CylinderGeometry(.018,.018,.34,8),metal,[.12,1.055,-.65],[Math.PI/2,0,0]);
+  // restrained red identification light, not a floating drone silhouette
+  addPart(new THREE.SphereGeometry(.035,8,6),new THREE.MeshBasicMaterial({color:0xff594d}),[0,1.69,-.135]);
   scene.add(root);
   trainingBots.push({root,home:spots[i].clone(),phase:i*2.1,state:"patrol",lastSeen:null,speed:1.1+i*.15,health:100,maxHealth:100,alive:true});
  }
