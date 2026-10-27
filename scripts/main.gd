@@ -745,7 +745,7 @@ func _fire_weapon() -> void:
 	var to := from + (-camera.global_transform.basis.z * 100.0)
 	var query := PhysicsRayQueryParameters3D.create(from, to)
 	query.exclude = [player]
-	var result := get_world_3d().direct_space_state.intersect_ray(query)
+	var result := player.get_world_3d().direct_space_state.intersect_ray(query)
 	if not result.is_empty():
 		var collider := result.get("collider") as Node
 		if collider is Node and collider.is_in_group("training_target"):
