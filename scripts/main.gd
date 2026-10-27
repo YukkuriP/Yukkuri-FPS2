@@ -747,9 +747,9 @@ func _fire_weapon() -> void:
 	query.exclude = [player]
 	var result := get_world_3d().direct_space_state.intersect_ray(query)
 	if not result.is_empty():
-		var collider: Object = result.get("collider")
+		var collider := result.get("collider") as Node
 		if collider is Node and collider.is_in_group("training_target"):
-			var target_root: Node3D = collider.get_meta("root_target")
+			var target_root := collider.get_meta("root_target") as Node3D
 			var target_health: int = int(collider.get_meta("health")) - 34
 			collider.set_meta("health", target_health)
 			hitmarker_left = 0.2
