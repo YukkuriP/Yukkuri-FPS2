@@ -495,29 +495,88 @@ func _build_weapon() -> void:
 	weapon_root.name = "FirstPersonCarbine"
 	weapon_root.position = Vector3(0.29, -0.28, -0.48)
 	camera.add_child(weapon_root)
-	# Receiver, handguard, barrel, muzzle device, optic and magazine.
-	_add_weapon_box(Vector3(0, 0, 0), Vector3(0.16, 0.15, 0.48), GUN)
-	_add_weapon_box(Vector3(0, -0.015, -0.34), Vector3(0.13, 0.12, 0.32), Color("#30393a"))
-	_add_weapon_box(Vector3(0, 0.005, -0.64), Vector3(0.055, 0.055, 0.35), Color("#151b1d"), 0.3)
-	_add_weapon_box(Vector3(0, 0.005, -0.83), Vector3(0.09, 0.075, 0.09), Color("#101517"), 0.35)
-	_add_weapon_box(Vector3(0, 0.12, -0.12), Vector3(0.09, 0.07, 0.14), Color("#151b1d"), 0.3)
-	_add_weapon_box(Vector3(0, -0.16, 0.08), Vector3(0.11, 0.24, 0.16), Color("#202729"))
-	_add_weapon_box(Vector3(0, -0.26, 0.04), Vector3(0.13, 0.09, 0.14), Color("#343d3d"))
-	_add_weapon_box(Vector3(0, -0.02, 0.17), Vector3(0.15, 0.08, 0.28), Color("#252d2f"))
-	_add_weapon_box(Vector3(0, 0.10, -0.12), Vector3(0.14, 0.045, 0.16), Color("#384548"), 0.3)
-	# Stylized sleeves and gloved hands, visible in first-person.
-	_add_weapon_box(Vector3(-0.19, -0.24, -0.20), Vector3(0.19, 0.22, 0.30), Color("#4d5b55"))
-	_add_weapon_box(Vector3(-0.11, -0.14, -0.42), Vector3(0.13, 0.11, 0.15), Color("#77776a"))
-	_add_weapon_box(Vector3(0.16, -0.23, 0.08), Vector3(0.17, 0.24, 0.27), Color("#4d5b55"))
-	_add_weapon_box(Vector3(0.08, -0.14, -0.03), Vector3(0.12, 0.11, 0.13), Color("#77776a"))
 
-func _add_weapon_box(pos: Vector3, size: Vector3, color: Color, roughness: float = 0.65) -> void:
+	# Original, realistic-looking modern carbine silhouette. This is a game prop,
+	# assembled from detailed meshes rather than a single blocky receiver.
+	var polymer := Color("#202729")
+	var metal := Color("#343c40")
+	var dark_metal := Color("#111719")
+	var rail_color := Color("#596164")
+	var grip_color := Color("#303a36")
+	var rubber := Color("#111414")
+
+	# Receiver and upper rail.
+	_add_weapon_box(Vector3(0, 0.005, -0.02), Vector3(0.145, 0.105, 0.34), metal)
+	_add_weapon_box(Vector3(0, 0.055, -0.035), Vector3(0.105, 0.035, 0.40), dark_metal)
+	_add_weapon_box(Vector3(0, -0.045, 0.055), Vector3(0.13, 0.075, 0.22), polymer)
+	_add_weapon_box(Vector3(0, 0.078, -0.13), Vector3(0.075, 0.018, 0.56), rail_color)
+
+	# Long handguard with side panels and repeated rail slots.
+	_add_weapon_box(Vector3(0, 0.005, -0.35), Vector3(0.12, 0.105, 0.38), polymer)
+	_add_weapon_box(Vector3(-0.066, 0.005, -0.35), Vector3(0.014, 0.055, 0.31), rail_color)
+	_add_weapon_box(Vector3(0.066, 0.005, -0.35), Vector3(0.014, 0.055, 0.31), rail_color)
+	for i in range(7):
+		var slot_z := -0.22 - float(i) * 0.041
+		_add_weapon_box(Vector3(-0.074, 0.005, slot_z), Vector3(0.009, 0.018, 0.022), dark_metal)
+		_add_weapon_box(Vector3(0.074, 0.005, slot_z), Vector3(0.009, 0.018, 0.022), dark_metal)
+
+	# Barrel, gas block and a compact muzzle device.
+	_add_weapon_cylinder(Vector3(0, 0.006, -0.67), 0.022, 0.43, dark_metal)
+	_add_weapon_box(Vector3(0, 0.005, -0.51), Vector3(0.07, 0.065, 0.075), metal)
+	_add_weapon_cylinder(Vector3(0, 0.006, -0.91), 0.032, 0.12, metal)
+	_add_weapon_cylinder(Vector3(0, 0.006, -0.978), 0.027, 0.025, rubber)
+	_add_weapon_cylinder(Vector3(0, 0.006, -0.994), 0.012, 0.006, Color("#050606"))
+
+	# Low-profile optic with glass-like front lens and protective hood.
+	_add_weapon_box(Vector3(0, 0.112, -0.12), Vector3(0.075, 0.025, 0.13), dark_metal)
+	_add_weapon_cylinder(Vector3(0, 0.148, -0.12), 0.036, 0.115, dark_metal, Vector3(PI / 2.0, 0, 0))
+	_add_weapon_cylinder(Vector3(0, 0.148, -0.181), 0.025, 0.006, Color("#49676b"), Vector3(PI / 2.0, 0, 0))
+	_add_weapon_box(Vector3(0, 0.095, -0.12), Vector3(0.055, 0.012, 0.09), metal)
+
+	# Angled pistol grip, trigger guard and trigger.
+	_add_weapon_box(Vector3(0, -0.125, 0.055), Vector3(0.085, 0.18, 0.095), grip_color, 0.9, Vector3(-0.22, 0, 0))
+	_add_weapon_box(Vector3(0, -0.09, 0.005), Vector3(0.09, 0.018, 0.09), dark_metal)
+	_add_weapon_box(Vector3(0, -0.102, -0.018), Vector3(0.012, 0.045, 0.014), rail_color)
+
+	# Curved-looking tapered magazine: segmented surfaces give it more depth.
+	_add_weapon_box(Vector3(0, -0.19, 0.015), Vector3(0.092, 0.105, 0.105), dark_metal)
+	_add_weapon_box(Vector3(0, -0.255, 0.04), Vector3(0.078, 0.085, 0.092), polymer, 0.9, Vector3(-0.12, 0, 0))
+	for i in range(4):
+		_add_weapon_box(Vector3(0, -0.22 - float(i) * 0.017, 0.067), Vector3(0.081, 0.004, 0.006), rail_color)
+
+	# Adjustable shoulder stock and rubber buttpad.
+	_add_weapon_box(Vector3(0, 0.005, 0.22), Vector3(0.12, 0.09, 0.22), polymer)
+	_add_weapon_box(Vector3(0, 0.005, 0.335), Vector3(0.135, 0.115, 0.035), rubber)
+	_add_weapon_box(Vector3(0, 0.018, 0.27), Vector3(0.075, 0.025, 0.18), metal)
+	_add_weapon_box(Vector3(0, 0.06, 0.18), Vector3(0.045, 0.025, 0.08), dark_metal)
+
+	# First-person sleeves and gloves, with the support hand reaching the handguard.
+	_add_weapon_box(Vector3(-0.19, -0.24, -0.19), Vector3(0.17, 0.19, 0.29), Color("#46544e"), 0.92, Vector3(0.08, 0.05, -0.12))
+	_add_weapon_box(Vector3(-0.105, -0.14, -0.37), Vector3(0.12, 0.085, 0.15), Color("#77786b"), 0.95, Vector3(-0.12, 0.02, -0.08))
+	_add_weapon_box(Vector3(0.16, -0.23, 0.08), Vector3(0.15, 0.21, 0.24), Color("#46544e"), 0.92)
+	_add_weapon_box(Vector3(0.085, -0.14, -0.005), Vector3(0.105, 0.10, 0.12), Color("#77786b"), 0.95)
+
+func _add_weapon_box(pos: Vector3, size: Vector3, color: Color, roughness: float = 0.65, rotation: Vector3 = Vector3.ZERO) -> void:
 	var instance := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
 	mesh.size = size
 	instance.mesh = mesh
 	instance.position = pos
+	instance.rotation = rotation
 	instance.material_override = _make_material(color, roughness, 0.18)
+	weapon_root.add_child(instance)
+
+func _add_weapon_cylinder(pos: Vector3, radius: float, height: float, color: Color, rotation: Vector3 = Vector3(PI / 2.0, 0, 0)) -> void:
+	var instance := MeshInstance3D.new()
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = radius
+	mesh.bottom_radius = radius
+	mesh.height = height
+	mesh.radial_segments = 16
+	instance.mesh = mesh
+	instance.position = pos
+	instance.rotation = rotation
+	instance.material_override = _make_material(color, 0.38, 0.48)
 	weapon_root.add_child(instance)
 
 func _spawn_training_targets() -> void:
@@ -801,7 +860,7 @@ func _fire_weapon() -> void:
 		flash.light_color = Color("#ffca77")
 		flash.light_energy = 2.2
 		flash.omni_range = 3.5
-		flash.position = Vector3(0, 0.02, -0.82)
+		flash.position = Vector3(0, 0.006, -0.99)
 		weapon_root.add_child(flash)
 		var flash_tween := create_tween()
 		flash_tween.tween_property(flash, "light_energy", 0.0, 0.055)
