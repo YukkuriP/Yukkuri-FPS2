@@ -553,7 +553,9 @@ func _add_soldier_part(parent: Node3D, mesh: Mesh, pos: Vector3, size: Vector3, 
 	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
 	instance.position = pos
-	instance.scale = size if mesh is not BoxMesh else Vector3.ONE
+	instance.scale = size
+	if mesh is BoxMesh:
+		instance.scale = Vector3.ONE
 	instance.material_override = material
 	parent.add_child(instance)
 
