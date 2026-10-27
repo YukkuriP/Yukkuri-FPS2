@@ -5,6 +5,7 @@ import uuid
 from websockets.asyncio.server import serve
 
 rooms = {}
+MAX_PLAYERS_PER_ROOM = 15
 
 async def send_json(ws, payload):
     await ws.send(json.dumps(payload, separators=(",", ":")))
@@ -34,6 +35,10 @@ async def handler(ws):
             kind = data.get("type")
             if kind == "join" and player is None:
                 room = "".join(c for c in str(data.get("room", "IRON-01")).upper() if c.isalnum() or c in "-_")[:12] or "IRON-01"
+                if len(rooms.get(room, {})) >= MAX_PLAYERS_PER_ROOM:
+                    await send_json(ws, {"type": "notice", "message": f"ルーム満員です（最大{MAX_PLAYERS_PER_ROOM}人）"})
+                    await ws.close(code=4001, reason="room full")
+                    return
                 requested_id = str(data.get("id", ""))
                 player_id = requested_id[:64] if requested_id and requested_id not in rooms.get(room, {}) else str(uuid.uuid4())
                 player = {"id": player_id, "name": str(data.get("name", "Operator"))[:16], "x": 0, "z": 10, "yaw": 0, "_ws": ws}
