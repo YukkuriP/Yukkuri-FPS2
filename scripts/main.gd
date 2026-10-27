@@ -787,7 +787,7 @@ func _fire_weapon() -> void:
 		var collider := result.get("collider") as Node
 		if collider is Node and collider.is_in_group("training_target"):
 			var target_root := collider.get_meta("root_target") as Node3D
-			var hit_position: Vector3 = result.get("position", to) as Vector3
+			var hit_position: Vector3 = result.get("position", to)
 			var headshot := hit_position.y - target_root.global_position.y > 1.55
 			var damage := 100 if headshot else 34
 			var target_health: int = int(collider.get_meta("health")) - damage
