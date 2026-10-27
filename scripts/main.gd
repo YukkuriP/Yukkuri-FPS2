@@ -537,7 +537,7 @@ func _make_soldier_target(number: int) -> Node3D:
 	body.set_meta("health", 100)
 	body.set_meta("root_target", soldier)
 	body.set_meta("is_enemy", true)
-	soldier.set_meta("attack_cooldown", 0.8 + float(number % 3) * 0.45)
+	soldier.set_meta("attack_cooldown", 1.4 + float(number % 3) * 0.55)
 	soldier.add_child(body)
 	var collision := CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
@@ -557,6 +557,8 @@ func _make_soldier_target(number: int) -> Node3D:
 	_add_soldier_part(body, SphereMesh.new(), Vector3(0, 1.72, 0), Vector3(0.27, 0.29, 0.25), skin)
 	_add_soldier_part(body, SphereMesh.new(), Vector3(0, 1.84, 0), Vector3(0.31, 0.16, 0.29), helmet)
 	_add_soldier_part(body, BoxMesh.new(), Vector3(0, 1.70, -0.13), Vector3(0.17, 0.055, 0.045), _make_material(Color("#3a4541")))
+	_add_soldier_part(body, BoxMesh.new(), Vector3(-0.39, 1.17, -0.08), Vector3(0.19, 0.10, 0.20), _make_material(Color("#8e3434"), 0.65, 0.05))
+	_add_soldier_part(body, BoxMesh.new(), Vector3(0, 1.92, -0.02), Vector3(0.24, 0.035, 0.12), _make_material(Color("#9c3c3c"), 0.5, 0.0))
 	for side in [-1.0, 1.0]:
 		_add_soldier_part(body, CapsuleMesh.new(), Vector3(side * 0.39, 1.13, 0), Vector3(0.16, 0.43, 0.16), uniform)
 		_add_soldier_part(body, CapsuleMesh.new(), Vector3(side * 0.43, 0.65, 0.015), Vector3(0.19, 0.51, 0.19), uniform)
@@ -671,6 +673,7 @@ func _update_hud() -> void:
 		hud_label.text = "IRON VEIL  /  %03d HP" % health
 	if is_instance_valid(ammo_label):
 		ammo_label.text = "RELOADING" if reloading else "%02d  /  %03d" % [ammo, reserve_ammo]
+		ammo_label.add_theme_color_override("font_color", RED if ammo <= 5 and not reloading else TEXT)
 	if is_instance_valid(status_label):
 		if mission_failed:
 			status_label.text = "MISSION FAILED  •  PRESS ENTER TO RETRY"
@@ -836,6 +839,17 @@ func _spawn_hit_effect(position: Vector3, headshot: bool) -> void:
 	tween.tween_property(flash, "light_energy", 0.0, 0.12)
 	tween.tween_callback(flash.queue_free)
 
+func _spawn_enemy_flash(position: Vector3) -> void:
+	var flash := OmniLight3D.new()
+	flash.light_color = Color("#ff563e")
+	flash.light_energy = 1.8
+	flash.omni_range = 3.2
+	flash.global_position = position
+	world.add_child(flash)
+	var tween := create_tween()
+	tween.tween_property(flash, "light_energy", 0.0, 0.09)
+	tween.tween_callback(flash.queue_free)
+
 func _damage_player(amount: int) -> void:
 	if mission_complete or mission_failed:
 		return
@@ -870,9 +884,10 @@ func _process(delta: float) -> void:
 			var move_step := minf(distance - 6.5, (1.15 + float(i % 3) * 0.18) * delta)
 			target.global_position += to_player.normalized() * move_step
 		var cooldown := float(target.get_meta("attack_cooldown", 1.0)) - delta
-		if distance < 24.0 and cooldown <= 0.0:
-			_damage_player(6 + (i % 3) * 2)
-			cooldown = 1.0 + float(i % 3) * 0.25
+		if distance < 19.0 and cooldown <= 0.0:
+			_spawn_enemy_flash(target.global_position + Vector3(0, 1.35, 0))
+			_damage_player(4 + (i % 3) * 2)
+			cooldown = 1.6 + float(i % 3) * 0.45
 		target.set_meta("attack_cooldown", cooldown)
 	_update_hud()
 
