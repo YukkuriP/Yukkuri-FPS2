@@ -126,6 +126,8 @@ function initScene(){
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));
  renderer.setSize(innerWidth,innerHeight);
  renderer.outputColorSpace=THREE.SRGBColorSpace;
+ renderer.toneMapping=THREE.ACESFilmicToneMapping;
+ renderer.toneMappingExposure=1.08;
  scene.add(new THREE.HemisphereLight(0xd9e8f4,0x28333b,1.65));
  createFirstPersonArms();
  const sun=new THREE.DirectionalLight(0xffe7c4,2.6);sun.position.set(-12,18,8);sun.castShadow=true;
