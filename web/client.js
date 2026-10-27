@@ -325,7 +325,7 @@ function fireWeapon(){
   raycaster.setFromCamera(new THREE.Vector2(0,0),camera);
   const targets=trainingBots.filter(b=>b.alive).flatMap(b=>b.root.children);
   const hit=raycaster.intersectObjects(targets,true)[0];
-  if(hit){const bot=trainingBots.find(b=>b.alive&&b.root===hit.object.parent||b.alive&&b.root.children.some(c=>c===hit.object||c.children?.includes(hit.object)));
+  if(hit){let node=hit.object;while(node&&node.parent!==scene)node=node.parent;const bot=trainingBots.find(b=>b.alive&&b.root===node);
    if(bot){bot.health-=34;hitMarkerUntil=now+180;
     if(bot.health<=0){bot.alive=false;scene.remove(bot.root);$("objectiveBanner").textContent="TARGET NEUTRALIZED — 敵訓練ドローンを撃破";}
     else $("objectiveBanner").textContent="HIT CONFIRMED — 残り耐久 "+Math.max(0,bot.health)+"%";
