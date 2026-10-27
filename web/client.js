@@ -9,8 +9,11 @@ const characterLoader = new GLTFLoader();
 const characterModelUrl = "./assets/characters/operator.glb";
 const characterMixers = new Set();
 let trainingBots = [];
+let viewArms = null, cameraBob = 0;
 let touchLook = false, lastTouch = null, joined = false, onlineMode = false;
 let objectives = [], objectiveIndex = 0, timeLeft = 180, missionEnded = false;
+let ammo = 30, reserveAmmo = 120, reloading = false, reloadUntil = 0, hitMarkerUntil = 0, fireCooldown = 0;
+const raycaster = new THREE.Raycaster();
 const playerId = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2);
 const palette = [0x8db9d9,0xd2a56e,0x9cc8a4,0xc5a1db,0xd58c8c,0xd7d7a0];
 setTimeout(() => { intro.classList.add("hidden"); lobby.classList.remove("hidden"); }, 1700);
@@ -23,6 +26,10 @@ $("showOnlineBtn").addEventListener("click", () => {
 $("backModesBtn").addEventListener("click", () => $("onlinePanel").classList.add("hidden"));
 $("joinBtn").addEventListener("click", connectOnline);
 $("leaveBtn").addEventListener("click", leaveGame);
+$("reloadBtn")?.addEventListener("click", reloadWeapon);
+$("fireBtn")?.addEventListener("pointerdown", e=>{e.preventDefault();fireWeapon();});
+document.addEventListener("mousedown", e=>{if(e.button===0 && joined && !matchMedia("(pointer:coarse)").matches) fireWeapon();});
+window.addEventListener("keydown", e=>{if(e.key.toLowerCase()==="r")reloadWeapon();});
 window.addEventListener("keydown", e => setKey(e.key,true));
 window.addEventListener("keyup", e => setKey(e.key,false));
 function setKey(key,on){
@@ -40,6 +47,7 @@ document.querySelectorAll("[data-move]").forEach(b=>{
 $("view").addEventListener("click",()=>{
  if(!matchMedia("(pointer:coarse)").matches && document.pointerLockElement!==$("view"))$("view").requestPointerLock?.();
 });
+$("view").addEventListener("contextmenu",e=>e.preventDefault());
 document.addEventListener("mousemove",e=>{
  if(joined && document.pointerLockElement===$("view")){
   yaw-=e.movementX*.002;
@@ -104,6 +112,7 @@ function connectOnline(){
 }
 function beginGame(){
  joined=true;missionEnded=false;objectiveIndex=0;timeLeft=180;yaw=0;pitch=0;last=performance.now();
+ ammo=30;reserveAmmo=120;reloading=false;reloadUntil=0;hitMarkerUntil=0;fireCooldown=0;
  lobby.classList.add("hidden");game.classList.remove("hidden");
  initScene();
  updateMissionHud();
@@ -111,18 +120,23 @@ function beginGame(){
 }
 function initScene(){
  if(renderer){renderer.dispose();renderer=null;}
+ viewArms=null;cameraBob=0;
  scene=new THREE.Scene();
  scene.background=new THREE.Color(0x748795);
  scene.fog=new THREE.Fog(0x748795,25,75);
  camera=new THREE.PerspectiveCamera(76,innerWidth/innerHeight,.1,120);
  camera.position.set(0,1.65,15);
+ scene.add(camera);
  renderer=new THREE.WebGLRenderer({canvas:$("view"),antialias:true,powerPreference:"high-performance"});
  renderer.shadowMap.enabled=true;
  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));
  renderer.setSize(innerWidth,innerHeight);
  renderer.outputColorSpace=THREE.SRGBColorSpace;
+ renderer.toneMapping=THREE.ACESFilmicToneMapping;
+ renderer.toneMappingExposure=1.08;
  scene.add(new THREE.HemisphereLight(0xd9e8f4,0x28333b,1.65));
+ createFirstPersonArms();
  const sun=new THREE.DirectionalLight(0xffe7c4,2.6);sun.position.set(-12,18,8);sun.castShadow=true;
  sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-24;sun.shadow.camera.right=24;
  sun.shadow.camera.top=24;sun.shadow.camera.bottom=-24;sun.shadow.bias=-0.00025;scene.add(sun);
@@ -165,6 +179,29 @@ function initScene(){
  window.addEventListener("resize",resize);
  requestAnimationFrame(frame);
 }
+function createFirstPersonArms(){
+ if(!camera)return;
+ const root=new THREE.Group();root.name="FirstPersonArms";
+ root.position.set(.29,-.34,-.42);camera.add(root);
+ const sleeve=new THREE.MeshStandardMaterial({color:0x394951,roughness:.94});
+ const glove=new THREE.MeshStandardMaterial({color:0x20282d,roughness:.88});
+ const seam=new THREE.MeshStandardMaterial({color:0x657780,roughness:.86});
+ const weapon=new THREE.MeshStandardMaterial({color:0x20282b,roughness:.42,metalness:.68});
+ const weaponDetail=new THREE.MeshStandardMaterial({color:0x59656a,roughness:.5,metalness:.55});
+ const add=(geo,mat,pos,rot)=>{const m=new THREE.Mesh(geo,mat);m.position.set(...pos);if(rot)m.rotation.set(...rot);root.add(m);return m;};
+ add(new THREE.CapsuleGeometry(.105,.39,4,8),sleeve,[.11,-.11,.02],[.12,0,-.34]);
+ add(new THREE.CapsuleGeometry(.09,.31,4,8),sleeve,[-.17,-.15,.12],[.2,0,.42]);
+ add(new THREE.SphereGeometry(.105,12,10),glove,[.18,-.29,-.06]);
+ add(new THREE.SphereGeometry(.095,12,10),glove,[-.24,-.29,.04]);
+ add(new THREE.BoxGeometry(.12,.025,.15),seam,[.11,-.19,.02],[.12,0,-.34]);
+ add(new THREE.BoxGeometry(.12,.025,.15),seam,[-.17,-.22,.12],[.2,0,.42]);
+ // Lightweight first-person carbine silhouette; procedural, no external asset required.
+ add(new THREE.BoxGeometry(.16,.14,.62),weapon,[.015,-.23,-.35],[.02,0,0]);
+ add(new THREE.CylinderGeometry(.025,.025,.42,10),weaponDetail,[.015,-.205,-.83],[Math.PI/2,0,0]);
+ add(new THREE.BoxGeometry(.09,.18,.12),weapon,[-.005,-.36,-.24],[.12,0,0]);
+ add(new THREE.BoxGeometry(.075,.07,.16),weaponDetail,[.015,-.145,-.34],[0,0,0]);
+ viewArms=root;
+}
 function addBox(x,y,z,sx,sy,sz,color){
  const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),new THREE.MeshStandardMaterial({color,roughness:.92}));
  m.position.set(x,y,z);scene.add(m);return m;
@@ -197,11 +234,6 @@ function createSoldier(color){
  for(const [x,leg] of [[-.14,leftLeg],[.14,rightLeg]]){
   part(new THREE.BoxGeometry(.19,.12,.31),dark,leg,new THREE.Vector3(0,-.48,-.055));
  }
- // A simple low-poly rifle silhouette held across the chest.
- const rifle=new THREE.Group();root.add(rifle);
- part(new THREE.BoxGeometry(.12,.12,.72),dark,rifle,new THREE.Vector3(.12,1.27,-.22));
- part(new THREE.CylinderGeometry(.018,.018,.48,6),gear,rifle,new THREE.Vector3(.12,1.3,-.69)).rotation.x=Math.PI/2;
- rifle.rotation.x=-.08;
  const soldier={root,leftArm,rightArm,leftLeg,rightLeg,target:new THREE.Vector3(),targetYaw:0,lastX:0,lastZ:0,speed:0,phase:0,cloth,dark,gear,skin,mixer:null,modelLoaded:false};
  loadExternalCharacter(soldier);
  return soldier;
@@ -274,8 +306,37 @@ function spawnTrainingBots(){
   }
   const ring=new THREE.Mesh(new THREE.TorusGeometry(.48,.025,6,24),new THREE.MeshBasicMaterial({color:0x67cce5,transparent:true,opacity:.8}));ring.rotation.x=Math.PI/2;ring.position.y=.65;root.add(ring);
   scene.add(root);
-  trainingBots.push({root,home:spots[i].clone(),phase:i*2.1,state:"patrol",lastSeen:null,speed:1.1+i*.15});
+  trainingBots.push({root,home:spots[i].clone(),phase:i*2.1,state:"patrol",lastSeen:null,speed:1.1+i*.15,health:100,maxHealth:100,alive:true});
  }
+}
+function reloadWeapon(){
+ if(!joined||reloading||ammo===30||reserveAmmo<=0)return;
+ reloading=true;reloadUntil=performance.now()+1450;
+ $("objectiveBanner").textContent="RELOADING — マガジン交換中";
+}
+function fireWeapon(){
+ if(!joined||missionEnded||reloading||fireCooldown>0)return;
+ if(ammo<=0){reloadWeapon();return;}
+ ammo--;fireCooldown=.105;
+ const now=performance.now();
+ // Short synthetic shot sound avoids requiring external audio files.
+ try{const C=window.AudioContext||window.webkitAudioContext;if(C){const ctx=fireWeapon.ctx||(fireWeapon.ctx=new C());if(ctx.state==="suspended")ctx.resume();const osc=ctx.createOscillator(),gain=ctx.createGain();osc.type="sawtooth";osc.frequency.setValueAtTime(105,ctx.currentTime);osc.frequency.exponentialRampToValueAtTime(42,ctx.currentTime+.075);gain.gain.setValueAtTime(.055,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.09);osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+.095);}}catch{}
+ if(camera&&scene){
+  raycaster.setFromCamera(new THREE.Vector2(0,0),camera);
+  const targets=trainingBots.filter(b=>b.alive).flatMap(b=>b.root.children);
+  const hit=raycaster.intersectObjects(targets,true)[0];
+  if(hit){let node=hit.object;while(node&&node.parent!==scene)node=node.parent;const bot=trainingBots.find(b=>b.alive&&b.root===node);
+   if(bot){bot.health-=34;hitMarkerUntil=now+180;
+    if(bot.health<=0){bot.alive=false;scene.remove(bot.root);$("objectiveBanner").textContent="TARGET NEUTRALIZED — 敵訓練ドローンを撃破";}
+    else $("objectiveBanner").textContent="HIT CONFIRMED — 残り耐久 "+Math.max(0,bot.health)+"%";
+   }
+  }
+ }
+ updateCombatHud();
+}
+function updateCombatHud(){
+ const ammoEl=$("ammoHud");if(ammoEl)ammoEl.textContent=(reloading?"RELOAD… ":"")+String(ammo).padStart(2,"0")+" / "+String(reserveAmmo).padStart(3,"0");
+ const cross=$("crosshair");if(cross){cross.textContent=performance.now()<hitMarkerUntil?"×":"+";cross.style.color=performance.now()<hitMarkerUntil?"#ffcf83":"#ffffff";}
 }
 function updateTrainingBots(dt,now){
  for(const bot of trainingBots){
@@ -335,6 +396,9 @@ function finishMission(won){
 function frame(now){
  if(!joined||!renderer||!scene)return;
  const dt=Math.min((now-last)/1000,.05);last=now;
+ fireCooldown=Math.max(0,fireCooldown-dt);
+ if(reloading&&now>=reloadUntil){const needed=30-ammo,take=Math.min(needed,reserveAmmo);ammo+=take;reserveAmmo-=take;reloading=false;$("objectiveBanner").textContent="MAGAZINE READY — 戦闘を継続せよ";}
+ updateCombatHud();
  if(!missionEnded&&!onlineMode){
   timeLeft-=dt;
   if(timeLeft<=0){timeLeft=0;finishMission(false);}
@@ -352,6 +416,7 @@ function frame(now){
  }
  camera.position.y=1.65;
  camera.rotation.order="YXZ";camera.rotation.y=yaw;camera.rotation.x=pitch;
+ if(viewArms){cameraBob=THREE.MathUtils.damp(cameraBob,speed>0?.018:0,10,dt);viewArms.position.y=-.34+Math.abs(Math.sin(now*.009))*cameraBob;viewArms.position.x=.29+Math.sin(now*.006)*cameraBob*.6;viewArms.rotation.z=Math.sin(now*.006)*cameraBob*1.6;}
  me.position.set(camera.position.x,.8,camera.position.z);me.rotation.y=yaw;
  for(let i=0;i<objectives.length;i++){
   const o=objectives[i];
@@ -387,7 +452,7 @@ function leaveGame(){
  if(socket){const old=socket;socket=null;old.close();}
  if(renderer){renderer.dispose();renderer=null;}
  if(scene){scene.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material.dispose();}});}
- scene=null;camera=null;me=null;peers.clear();objectives=[];trainingBots=[];characterMixers.clear();
+ scene=null;camera=null;me=null;peers.clear();objectives=[];trainingBots=[];characterMixers.clear();reloading=false;
  game.classList.add("hidden");lobby.classList.remove("hidden");
  $("onlinePanel").classList.add("hidden");
  statusEl.textContent="メニューに戻りました。";

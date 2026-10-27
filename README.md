@@ -59,6 +59,7 @@ Implemented:
 - 3D arena with textured ground, perimeter skyline, structures, lighting, fog, and objective markers.
 - Soft directional shadows and improved material response, with capped pixel ratio to limit GPU cost.
 - Desktop and touch movement, sprint, mouse/touch look, timer, and mission status.
+- Initial offline combat loop: procedural first-person carbine, center-screen hitscan, drone damage and elimination, ammo/reserve counter, reload timing, hit confirmation, and touch fire button.
 - Optional WebSocket room join and player-position synchronization.
 - Procedurally animated remote-player characters with smoothed network movement.
 - Three non-combat training drones that patrol around their home positions and observe the player nearby.
@@ -69,14 +70,14 @@ Implemented:
 To use a custom model, add a properly licensed, web-compatible GLB file at `web/assets/characters/operator.glb`. The model should be upright with its feet near ground level; embedded animation clips are supported. No third-party model is bundled in this repository, so the fallback character remains active until you supply one.
 
 Still in development:
-- The browser edition is a prototype, not a finished AAA game.
+- The browser edition is a prototype, not a finished AAA game. Combat is currently a basic hitscan test against floating training drones, not a full enemy AI/combat campaign. Weapon animation, recoil tuning, cover-aware enemy AI, mission variety, effects, and balance still need work.
 - Online match objectives are not synchronized yet; the current online feature is basic player-position synchronization.
 - More playtesting is needed on low-spec Windows PCs and Android browsers.
 - The browser edition loads Three.js from a CDN and is not fully offline with no internet at all.
 
 ## Godot prototype
 
-Open the repository root's `project.godot` in Godot 4.x.
+Open the repository root's `project.godot` in Godot 4.x. See [GODOT_EXPORT.md](GODOT_EXPORT.md) for the steps to export a Windows executable or a Web build, plus notes on publishing and testing.
 
 ## License
 
