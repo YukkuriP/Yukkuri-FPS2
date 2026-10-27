@@ -76,7 +76,7 @@ Still in development:
 
 ## Godot prototype
 
-Open the repository root's `project.godot` in Godot 4.x.
+Open the repository root's `project.godot` in Godot 4.x. See [GODOT_EXPORT.md](GODOT_EXPORT.md) for the steps to export a Windows executable or a Web build, plus notes on publishing and testing.
 
 ## License
 
