@@ -758,7 +758,13 @@ func _physics_process(delta: float) -> void:
 		Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
 		Input.get_action_strength("move_back") - Input.get_action_strength("move_forward")
 	)
-	var direction := (player.transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
+	# Move relative to the player's current yaw, never world-axis WASD.
+	# Flatten the transformed vector so pitch/vertical components cannot skew movement.
+	var move_basis := Basis(Vector3.UP, player.global_rotation.y)
+	var direction := move_basis * Vector3(input_dir.x, 0.0, input_dir.y)
+	direction.y = 0.0
+	if direction.length_squared() > 0.0001:
+		direction = direction.normalized()
 	var sprinting := Input.is_key_pressed(KEY_SHIFT)
 	var speed := 7.0 if sprinting else 4.8
 	player.velocity.x = direction.x * speed
