@@ -151,7 +151,7 @@ func _show_lobby() -> void:
 	description.add_theme_font_size_override("font_size", 16)
 	description.add_theme_color_override("font_color", MUTED)
 	root_ui.add_child(description)
-	var start_button := _make_button("訓練エリアに入る   →", Vector2(52, 322), Vector2(330, 58))
+	var start_button := _make_button("作戦開始  /  DEPLOY   →", Vector2(52, 322), Vector2(330, 58))
 	start_button.pressed.connect(_start_training)
 	root_ui.add_child(start_button)
 	var settings_button := _make_button("操作・設定", Vector2(52, 395), Vector2(220, 48))
@@ -446,6 +446,13 @@ func _add_lamp(pos: Vector3) -> void:
 	world.add_child(_make_box(pos + Vector3(0, 2.5, 0), Vector3(0.12, 5.0, 0.12), Color("#29353a")))
 	var head := _make_box(pos + Vector3(0, 5.05, 0), Vector3(0.75, 0.18, 0.42), Color("#c4d4d0"), 0.35)
 	world.add_child(head)
+	var lamp_light := OmniLight3D.new()
+	lamp_light.position = pos + Vector3(0, 4.85, 0)
+	lamp_light.light_color = Color("#b8dcff")
+	lamp_light.light_energy = 1.1
+	lamp_light.omni_range = 9.0
+	lamp_light.shadow_enabled = false
+	world.add_child(lamp_light)
 
 func _add_objective_marker(pos: Vector3, label_text: String) -> void:
 	var marker := Node3D.new()
@@ -459,6 +466,12 @@ func _add_objective_marker(pos: Vector3, label_text: String) -> void:
 	ring.position.y = 0.08
 	ring.material_override = _make_material(Color("#72d8c3"), 0.35, 0.15, Color("#3ab99d"))
 	marker.add_child(ring)
+	var beacon_light := OmniLight3D.new()
+	beacon_light.position.y = 1.2
+	beacon_light.light_color = Color("#45e3bf")
+	beacon_light.light_energy = 0.8
+	beacon_light.omni_range = 4.5
+	marker.add_child(beacon_light)
 	var beam := MeshInstance3D.new()
 	var beam_mesh := CylinderMesh.new()
 	beam_mesh.top_radius = 0.025
