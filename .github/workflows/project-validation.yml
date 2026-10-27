@@ -25,7 +25,14 @@ jobs:
           include-templates: false
 
       - name: Import project and parse GDScript
-        run: godot --headless --editor --path . --quit
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless --editor --path . --quit 2>&1 | tee godot-check.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed to load script|ERROR:' godot-check.log; then
+            echo "Godot reported a script or project error."
+            exit 1
+          fi
 
       - name: Check JavaScript syntax
         uses: actions/setup-node@v4
