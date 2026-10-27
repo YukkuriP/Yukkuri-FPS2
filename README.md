@@ -59,10 +59,10 @@ Implemented:
 - 3D arena with textured ground, perimeter skyline, structures, lighting, fog, and objective markers.
 - Soft directional shadows and improved material response, with capped pixel ratio to limit GPU cost.
 - Desktop and touch movement, sprint, mouse/touch look, timer, and mission status.
-- Initial offline combat loop: procedural first-person carbine, center-screen hitscan, drone damage and elimination, ammo/reserve counter, reload timing, hit confirmation, and touch fire button.
+- Initial offline combat loop: procedural first-person carbine, center-screen hitscan, target damage and elimination, ammo/reserve counter, reload timing, hit confirmation, and touch fire button.
 - Optional WebSocket room join and player-position synchronization.
 - Procedurally animated remote-player characters with smoothed network movement.
-- Three non-combat training drones that patrol around their home positions and observe the player nearby.
+- Procedural human-shaped training soldiers in the browser prototype; they are target dummies, not yet combat-capable AI.
 - Optional GLB character-model loading with animation clips. If `web/assets/characters/operator.glb` is not present or fails to load, the game safely keeps its procedural character fallback.
 
 ### Optional character model
@@ -70,14 +70,14 @@ Implemented:
 To use a custom model, add a properly licensed, web-compatible GLB file at `web/assets/characters/operator.glb`. The model should be upright with its feet near ground level; embedded animation clips are supported. No third-party model is bundled in this repository, so the fallback character remains active until you supply one.
 
 Still in development:
-- The browser edition is a prototype, not a finished AAA game. Combat is currently a basic hitscan test against floating training drones, not a full enemy AI/combat campaign. Weapon animation, recoil tuning, cover-aware enemy AI, mission variety, effects, and balance still need work.
+- The browser edition is a prototype, not a finished AAA game. Combat is currently a basic hitscan test against procedural human-shaped training targets, not a full enemy AI/combat campaign. Weapon animation, recoil tuning, cover-aware enemy AI, mission variety, effects, and balance still need work.
 - Online match objectives are not synchronized yet; the current online feature is basic player-position synchronization.
 - More playtesting is needed on low-spec Windows PCs and Android browsers.
 - The browser edition loads Three.js from a CDN and is not fully offline with no internet at all.
 
 ## Godot prototype
 
-Open the repository root's `project.godot` in Godot 4.x. See [GODOT_EXPORT.md](GODOT_EXPORT.md) for the steps to export a Windows executable or a Web build, plus notes on publishing and testing.
+The Godot project is the primary direction for ongoing development. Open the repository root's `project.godot` in Godot 4.x. The current offline vertical slice includes a stylized tactical training yard, procedural low-poly soldier targets, a first-person carbine and hands, mouse-look, WASD movement, sprinting, hitscan firing, reload/ammo HUD, hit markers, and a five-target training objective. These are procedural prototype assets, not finished AAA assets; enemy combat AI, animation rigs, audio, advanced effects, full settings, and multiplayer are still unfinished. The project has not yet been verified through a complete editor run and export, so test it in Godot before distributing it. See [GODOT_EXPORT.md](GODOT_EXPORT.md) for Windows and Web export instructions.
 
 ## License
 
