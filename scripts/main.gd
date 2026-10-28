@@ -394,12 +394,11 @@ func _build_large_map() -> void:
 	world.add_child(terrain_body)
 
 	# Dirt tracks, drainage cuts and broad highways approaching from both team bases.
-	_add_ground_patch(Vector3(0, 0, 0), Vector3(42, 0, 1000), Color("#444747"))
-	_add_road(Vector3(0, 0, 0), Vector3(18, 0.35, 1000), Color("#34393a"))
-	_add_road(Vector3(0, 0, 0), Vector3(30, 0.18, 1000), Color("#77776d"), true)
-	_add_road(Vector3(0, 0, 0), Vector3(0.35, 0.08, 1000), Color("#d2c9a3"), true)
-	for z in range(-460, 461, 40):
-		_add_ground_patch(Vector3(0, _terrain_height(0, float(z)) + 0.12, float(z)), Vector3(0.3, 0.12, 18), Color("#d7d0ad"))
+	for z in range(-495, 500, 10):
+		var road_y := _terrain_height(0.0, float(z))
+		_add_road(Vector3(0, road_y + 0.28, float(z)), Vector3(18, 0.35, 10.2), Color("#34393a"))
+		_add_road(Vector3(0, road_y + 0.48, float(z)), Vector3(30, 0.08, 10.2), Color("#77776d"), true)
+		_add_road(Vector3(0, road_y + 0.54, float(z)), Vector3(0.35, 0.06, 10.2), Color("#d2c9a3"), true)
 
 	# Twin bases at the map edges.
 	_add_base(Vector3(0, 0, 445), Color("#536c59"), "SOUTH / FRIENDLY")
@@ -488,15 +487,13 @@ func _add_tunnel_portal(pos: Vector3, north_end: bool) -> void:
 	for x in [-11.0, 11.0]:
 		world.add_child(_make_box(pos + Vector3(x, 5.5, 0), Vector3(2.0, 11.0, 2.2), Color("#656c6b")))
 	world.add_child(_make_box(pos + Vector3(0, 11.0, 0), Vector3(24.0, 2.0, 2.2), Color("#777d79")))
-	var tunnel := MeshInstance3D.new()
-	var tunnel_mesh := BoxMesh.new()
-	tunnel_mesh.size = Vector3(18, 10, 260)
-	tunnel.mesh = tunnel_mesh
-	tunnel.position = Vector3(0, 26.8, pos.z + (north_end ? 15.0 : -15.0))
-	tunnel.material_override = _make_material(Color("#171d20"), 0.98)
-	world.add_child(tunnel)
+	var tunnel_center_z := pos.z + (15.0 if north_end else -15.0)
+	# Open-sided tunnel lining: roof and side walls leave a clear drivable passage.
+	world.add_child(_make_box(Vector3(-8.8, 31.7, tunnel_center_z), Vector3(0.8, 9.0, 260.0), Color("#353d40")))
+	world.add_child(_make_box(Vector3(8.8, 31.7, tunnel_center_z), Vector3(0.8, 9.0, 260.0), Color("#353d40")))
+	world.add_child(_make_box(Vector3(0, 36.2, tunnel_center_z), Vector3(18.0, 0.8, 260.0), Color("#292f32")))
 	for offset in range(-120, 121, 20):
-		world.add_child(_make_box(Vector3(0, 31.6, pos.z + float(offset)), Vector3(18.0, 0.35, 0.35), Color("#4b5150")))
+		world.add_child(_make_box(Vector3(0, 35.7, tunnel_center_z + float(offset)), Vector3(18.0, 0.35, 0.35), Color("#4b5150")))
 
 func _add_underground_facility(pos: Vector3) -> void:
 	# Side entrance midway through the tunnel, with an illuminated descent into the bunker.
@@ -813,6 +810,7 @@ func _spawn_training_targets() -> void:
 	for i in range(positions.size()):
 		var target := _make_soldier_target(i + 1)
 		target.position = positions[i]
+		target.position.y = _terrain_height(target.position.x, target.position.z)
 		world.add_child(target)
 		target_nodes.append(target)
 
