@@ -336,7 +336,7 @@ func _build_training_world() -> void:
 	camera.near = 0.05
 	camera.far = 1200.0
 	player.add_child(camera)
-	player.position = Vector3(-18, _terrain_height(-18, 420) + 0.2, 420)
+	player.position = Vector3(-18, _terrain_height(-18, 420) + 0.5, 420)
 	look_yaw = 0.0
 	look_pitch = 0.0
 	previous_player_position = player.position
@@ -810,7 +810,7 @@ func _spawn_training_targets() -> void:
 	for i in range(positions.size()):
 		var target := _make_soldier_target(i + 1)
 		target.position = positions[i]
-		target.position.y = _terrain_height(target.position.x, target.position.z)
+		target.position.y = _terrain_height(target.position.x, target.position.z) + 0.35
 		world.add_child(target)
 		target_nodes.append(target)
 
