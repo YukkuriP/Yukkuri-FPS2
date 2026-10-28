@@ -855,6 +855,10 @@ func _fire_weapon() -> void:
 	ammo -= 1
 	fire_cooldown = 0.105
 	weapon_kick = 1.0
+	# Small, controllable camera impulse gives automatic fire some weight.
+	look_pitch = clampf(look_pitch - 0.012, -1.25, 1.25)
+	if is_instance_valid(camera):
+		camera.rotation.x = look_pitch
 	if is_instance_valid(weapon_root):
 		var flash := OmniLight3D.new()
 		flash.light_color = Color("#ffca77")
@@ -870,6 +874,9 @@ func _fire_weapon() -> void:
 	var query := PhysicsRayQueryParameters3D.create(from, to)
 	query.exclude = [player]
 	var result := player.get_world_3d().direct_space_state.intersect_ray(query)
+	var tracer_end: Vector3 = result.get("position", to) if not result.is_empty() else from + (-camera.global_transform.basis.z * 38.0)
+	if is_instance_valid(weapon_root):
+		_spawn_tracer(weapon_root.global_position + Vector3(0, 0.006, -0.99), tracer_end)
 	if not result.is_empty():
 		var collider := result.get("collider") as Node
 		if collider is Node and collider.is_in_group("training_target"):
@@ -898,6 +905,34 @@ func _fire_weapon() -> void:
 		else:
 			kill_streak = 0
 	_update_hud()
+
+func _spawn_tracer(start: Vector3, finish: Vector3) -> void:
+	# A brief emissive line makes each hitscan shot readable without a physics projectile.
+	var travel := finish - start
+	var distance := travel.length()
+	if distance < 0.15:
+		return
+	var tracer := MeshInstance3D.new()
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = 0.008
+	mesh.bottom_radius = 0.008
+	mesh.height = distance
+	mesh.radial_segments = 6
+	tracer.mesh = mesh
+	tracer.position = (start + finish) * 0.5
+	tracer.quaternion = Quaternion(Vector3.UP, travel.normalized())
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_color = Color(1.0, 0.78, 0.38, 0.92)
+	material.emission_enabled = true
+	material.emission = Color(1.0, 0.48, 0.12)
+	material.emission_energy_multiplier = 2.2
+	tracer.material_override = material
+	world.add_child(tracer)
+	var fade := create_tween()
+	fade.tween_property(material, "albedo_color:a", 0.0, 0.075)
+	fade.tween_callback(tracer.queue_free)
 
 func _spawn_hit_effect(position: Vector3, headshot: bool) -> void:
 	var flash := OmniLight3D.new()
