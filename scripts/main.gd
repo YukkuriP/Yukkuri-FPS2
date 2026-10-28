@@ -481,7 +481,7 @@ func _add_roadside_infrastructure() -> void:
 	for z in range(-400, 401, 80):
 		var y := _terrain_height(0.0, float(z))
 		for side in [-1.0, 1.0]:
-			var x := side * 17.0
+			var x: float = side * 17.0
 			world.add_child(_make_box(Vector3(x, y + 4.0, float(z)), Vector3(0.3, 8.0, 0.3), Color("#555c5e")))
 			world.add_child(_make_box(Vector3(x - side * 2.0, y + 8.0, float(z)), Vector3(4.0, 0.22, 0.22), Color("#555c5e")))
 			var lamp := SphereMesh.new()
