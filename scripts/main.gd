@@ -51,6 +51,8 @@ var hitmarker_left := 0.0
 var weapon_kick := 0.0
 var move_bob := 0.0
 var previous_player_position := Vector3.ZERO
+var flight_mode := false
+var player_collision: CollisionShape3D
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -146,7 +148,7 @@ func _show_lobby() -> void:
 	welcome.add_theme_color_override("font_color", TEXT)
 	root_ui.add_child(welcome)
 	var description := Label.new()
-	description.text = "敵兵が追跡・射撃してくる戦闘区域を突破せよ。\nヘッドショットと連続撃破でスコアを稼ぎ、4分以内に全員を制圧。"
+	description.text = "1km × 1kmの戦闘区域を自由に探索。\nまずはマップを完成させる開発ビルドです。敵AIはまだ実装していません。"
 	description.position = Vector2(52, 222)
 	description.size = Vector2(690, 62)
 	description.add_theme_font_size_override("font_size", 16)
@@ -171,7 +173,7 @@ func _show_lobby() -> void:
 	panel_title.add_theme_color_override("font_color", ACCENT)
 	root_ui.add_child(panel_title)
 	var briefing := Label.new()
-	briefing.text = "01  /  SECTOR: GREYBOX\n      Hostile forces have occupied the yard\n\n02  /  OBJECTIVE\n      Eliminate 8 hostile operators\n\n03  /  THREAT\n      Enemies advance and return fire\n\n04  /  LOADOUT\n      5.56 mm carbine • 30 + 180 rounds"
+	briefing.text = "01  /  MAP\n      1 km × 1 km exploration area\n\n02  /  TERRAIN\n      Mountain, tunnel, highway and town\n\n03  /  CURRENT PHASE\n      Map construction and traversal\n\n04  /  NEXT\n      Map polish, then AI"
 	briefing.position = Vector2(820, 230)
 	briefing.size = Vector2(330, 230)
 	briefing.add_theme_font_size_override("font_size", 15)
@@ -240,7 +242,7 @@ func _show_settings() -> void:
 	title.add_theme_color_override("font_color", TEXT)
 	root_ui.add_child(title)
 	var info := Label.new()
-	info.text = "移動：WASD / 矢印キー\nダッシュ：Shift\n射撃：左クリック\nリロード：R\n視点：マウス\nEsc：カーソル解放 / ロビーへ戻る\n\nこのビルドはオフライン戦闘の縦切り試作です。"
+	info.text = "移動：WASD / 矢印キー\n高速飛行：FでON/OFF（飛行中は視点方向へ移動）\n上昇：Space　下降：Ctrl\n高速移動：Shift\n視点：マウス（左クリックで視点操作開始）\nEsc：一時停止メニュー\n\n現在はマップ制作フェーズです。敵AIはまだありません。"
 	info.position = Vector2(55, 125)
 	info.size = Vector2(680, 270)
 	info.add_theme_font_size_override("font_size", 18)
@@ -267,6 +269,7 @@ func _start_training() -> void:
 	damage_flash_left = 0.0
 	target_nodes.clear()
 	objective_nodes.clear()
+	flight_mode = false
 	_clear_ui()
 	_build_training_world()
 	_add_training_overlay()
@@ -324,13 +327,13 @@ func _build_training_world() -> void:
 	player.name = "Player"
 	player.floor_snap_length = 0.25
 	world.add_child(player)
-	var collision := CollisionShape3D.new()
+	player_collision = CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = 0.36
 	capsule.height = 1.8
-	collision.shape = capsule
-	collision.position.y = 0.9
-	player.add_child(collision)
+	player_collision.shape = capsule
+	player_collision.position.y = 0.9
+	player.add_child(player_collision)
 	camera = Camera3D.new()
 	camera.position = Vector3(0, 1.62, 0)
 	camera.fov = 82.0
@@ -343,7 +346,6 @@ func _build_training_world() -> void:
 	look_pitch = 0.0
 	previous_player_position = player.position
 	_build_weapon()
-	_spawn_training_targets()
 
 
 func _terrain_height(x: float, z: float) -> float:
@@ -1019,7 +1021,7 @@ func _add_training_overlay() -> void:
 	hud_label.add_theme_color_override("font_color", TEXT)
 	root_ui.add_child(hud_label)
 	status_label = Label.new()
-	status_label.text = "OBJECTIVE  •  ELIMINATE ALL TARGETS"
+	status_label.text = "FREE ROAM  •  MAP DEVELOPMENT PHASE"
 	status_label.position = Vector2(640, 14)
 	status_label.size = Vector2(620, 28)
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -1073,7 +1075,7 @@ func _add_training_overlay() -> void:
 	damage_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root_ui.add_child(damage_overlay)
 	var controls := Label.new()
-	controls.text = "WASD MOVE    SHIFT SPRINT    LMB FIRE    R RELOAD    ESC MENU    ENTER RETRY"
+	controls.text = "WASD MOVE    F FLIGHT    SPACE UP    CTRL DOWN    SHIFT BOOST    ESC MENU"
 	controls.position = Vector2(22, 674)
 	controls.size = Vector2(900, 24)
 	controls.add_theme_font_size_override("font_size", 12)
@@ -1116,7 +1118,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not in_training:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_ESCAPE:
+		if event.keycode == KEY_F:
+			flight_mode = not flight_mode
+			if is_instance_valid(player_collision):
+				player_collision.disabled = flight_mode
+			if flight_mode:
+				player.velocity = Vector3.ZERO
+				if is_instance_valid(status_label):
+					status_label.text = "FLIGHT MODE ON  •  SPACE UP / CTRL DOWN"
+			elif is_instance_valid(status_label):
+				status_label.text = "FREE ROAM  •  MAP DEVELOPMENT PHASE"
+		elif event.keycode == KEY_ESCAPE:
 			if game_paused:
 				_resume_training()
 			else:
@@ -1206,26 +1218,38 @@ func _physics_process(delta: float) -> void:
 		if mission_time <= 0.0:
 			mission_failed = true
 	_update_hud()
-	# Read physical keys directly as a fallback if input actions are missing or remapped.
+	# Physical-key fallback keeps movement usable even if project input mappings differ.
 	var input_x := float(Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT)) - float(Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT))
 	var input_y := float(Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN)) - float(Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP))
 	var input_dir := Vector2(input_x, input_y)
-	# Move relative to the player's current yaw, never world-axis WASD.
-	# Flatten the transformed vector so pitch/vertical components cannot skew movement.
-	var move_basis := Basis(Vector3.UP, player.global_rotation.y)
-	var direction := move_basis * Vector3(input_dir.x, 0.0, input_dir.y)
-	direction.y = 0.0
-	if direction.length_squared() > 0.0001:
-		direction = direction.normalized()
 	var sprinting := Input.is_key_pressed(KEY_SHIFT)
-	var speed := 7.0 if sprinting else 4.8
-	player.velocity.x = direction.x * speed
-	player.velocity.z = direction.z * speed
-	if not player.is_on_floor():
-		player.velocity.y -= 20.0 * delta
+	if flight_mode:
+		# Flight follows the camera's full direction and ignores terrain/building collision.
+		var fly_direction := (-camera.global_transform.basis.z * input_dir.y) + (camera.global_transform.basis.x * input_dir.x)
+		if Input.is_key_pressed(KEY_SPACE):
+			fly_direction += Vector3.UP
+		if Input.is_key_pressed(KEY_CTRL):
+			fly_direction += Vector3.DOWN
+		if fly_direction.length_squared() > 0.0001:
+			fly_direction = fly_direction.normalized()
+		var fly_speed := 65.0 if sprinting else 32.0
+		player.global_position += fly_direction * fly_speed * delta
+		player.velocity = Vector3.ZERO
 	else:
-		player.velocity.y = -0.1
-	player.move_and_slide()
+		# Ground movement stays horizontal relative to the player's yaw.
+		var move_basis := Basis(Vector3.UP, player.global_rotation.y)
+		var direction := move_basis * Vector3(input_dir.x, 0.0, input_dir.y)
+		direction.y = 0.0
+		if direction.length_squared() > 0.0001:
+			direction = direction.normalized()
+		var speed := 7.0 if sprinting else 4.8
+		player.velocity.x = direction.x * speed
+		player.velocity.z = direction.z * speed
+		if not player.is_on_floor():
+			player.velocity.y -= 20.0 * delta
+		else:
+			player.velocity.y = -0.1
+		player.move_and_slide()
 	var moved := player.global_position.distance_to(previous_player_position)
 	if moved > 0.001:
 		move_bob += delta * (12.0 if sprinting else 8.0)
@@ -1366,8 +1390,9 @@ func _process(delta: float) -> void:
 		damage_overlay.modulate.a = clampf(damage_flash_left * 0.6, 0.0, 0.28)
 	if mission_complete or mission_failed:
 		return
-	# Enemies push toward the player, pause to fire, and turn to face the player.
-	for i in range(target_nodes.size()):
+	# AI is intentionally disabled during the map-first development phase.
+	# Re-enable and implement target behavior only after the map and traversal are polished.
+	for i in range(0):
 		var target := target_nodes[i]
 		if not is_instance_valid(target):
 			continue
