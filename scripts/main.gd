@@ -16,6 +16,7 @@ const GUN := Color("#242b2d")
 var ui_layer: CanvasLayer
 var root_ui: Control
 var in_training := false
+var game_paused := false
 var player: CharacterBody3D
 var camera: Camera3D
 var world: Node3D
@@ -251,6 +252,7 @@ func _show_settings() -> void:
 
 func _start_training() -> void:
 	in_training = true
+	game_paused = false
 	ammo = 30
 	reserve_ammo = 180
 	reloading = false
@@ -1099,6 +1101,7 @@ func _update_hud() -> void:
 
 func _return_to_lobby() -> void:
 	in_training = false
+	game_paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	mouse_captured = false
 	if is_instance_valid(world):
@@ -1114,11 +1117,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
-			if mouse_captured:
+			if game_paused:
+				_resume_training()
+			else:
+				game_paused = true
 				Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 				mouse_captured = false
-			else:
-				_return_to_lobby()
+				_show_pause_menu()
 		elif event.keycode == KEY_R:
 			_start_reload()
 		elif event.keycode == KEY_ENTER and (mission_complete or mission_failed):
@@ -1135,8 +1140,44 @@ func _unhandled_input(event: InputEvent) -> void:
 		player.rotation.y = look_yaw
 		camera.rotation.x = look_pitch
 
+func _show_pause_menu() -> void:
+	_clear_ui()
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.015, 0.025, 0.04, 0.94)
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root_ui.add_child(backdrop)
+	var title := Label.new()
+	title.text = "MISSION PAUSED"
+	title.position = Vector2(0, 180)
+	title.size = Vector2(1280, 56)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 34)
+	title.add_theme_color_override("font_color", TEXT)
+	root_ui.add_child(title)
+	var subtitle := Label.new()
+	subtitle.text = "作戦は一時停止中です。再開するか、ロビーへ戻れます。"
+	subtitle.position = Vector2(0, 242)
+	subtitle.size = Vector2(1280, 34)
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_font_size_override("font_size", 16)
+	subtitle.add_theme_color_override("font_color", MUTED)
+	root_ui.add_child(subtitle)
+	var resume_button := _make_button("作戦を再開", Vector2(450, 320), Vector2(380, 56))
+	resume_button.pressed.connect(_resume_training)
+	root_ui.add_child(resume_button)
+	var lobby_button := _make_button("ロビーへ戻る", Vector2(450, 390), Vector2(380, 52))
+	lobby_button.pressed.connect(_return_to_lobby)
+	root_ui.add_child(lobby_button)
+
+func _resume_training() -> void:
+	game_paused = false
+	_clear_ui()
+	_add_training_overlay()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	mouse_captured = false
+
 func _physics_process(delta: float) -> void:
-	if not in_training or not is_instance_valid(player):
+	if not in_training or game_paused or not is_instance_valid(player):
 		return
 	fire_cooldown = maxf(0.0, fire_cooldown - delta)
 	hitmarker_left = maxf(0.0, hitmarker_left - delta)
@@ -1318,7 +1359,7 @@ func _damage_player(amount: int) -> void:
 	_update_hud()
 
 func _process(delta: float) -> void:
-	if not in_training or not is_instance_valid(player):
+	if not in_training or game_paused or not is_instance_valid(player):
 		return
 	damage_flash_left = maxf(0.0, damage_flash_left - delta)
 	if is_instance_valid(damage_overlay):
