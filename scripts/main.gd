@@ -876,7 +876,7 @@ func _fire_weapon() -> void:
 	var result := player.get_world_3d().direct_space_state.intersect_ray(query)
 	var tracer_end: Vector3 = result.get("position", to) if not result.is_empty() else from + (-camera.global_transform.basis.z * 38.0)
 	if is_instance_valid(weapon_root):
-		_spawn_tracer(weapon_root.global_position + Vector3(0, 0.006, -0.99), tracer_end)
+		_spawn_tracer(weapon_root.to_global(Vector3(0, 0.006, -0.99)), tracer_end)
 	if not result.is_empty():
 		var collider := result.get("collider") as Node
 		if collider is Node and collider.is_in_group("training_target"):
