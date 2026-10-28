@@ -316,43 +316,7 @@ func _build_training_world() -> void:
 	fill.shadow_enabled = false
 	world.add_child(fill)
 
-	# Large concrete pad and tiled floor markings.
-	world.add_child(_make_box(Vector3(0, -0.5, 0), Vector3(70, 1, 70), Color("#343d40"), 0.95))
-	for i in range(15):
-		var line_x := -28.0 + float(i) * 4.0
-		world.add_child(_make_box(Vector3(line_x, 0.012, 0), Vector3(0.035, 0.02, 64), Color("#58625f"), 0.9))
-	for i in range(15):
-		var line_z := -28.0 + float(i) * 4.0
-		world.add_child(_make_box(Vector3(0, 0.014, line_z), Vector3(64, 0.02, 0.035), Color("#58625f"), 0.9))
-
-	# Perimeter walls, watch posts and industrial silhouettes.
-	world.add_child(_make_box(Vector3(0, 2.0, -33), Vector3(68, 4, 0.8), Color("#4a5558")))
-	world.add_child(_make_box(Vector3(0, 2.0, 33), Vector3(68, 4, 0.8), Color("#4a5558")))
-	world.add_child(_make_box(Vector3(-33, 2.0, 0), Vector3(0.8, 4, 68), Color("#4a5558")))
-	world.add_child(_make_box(Vector3(33, 2.0, 0), Vector3(0.8, 4, 68), Color("#4a5558")))
-	for x in [-24.0, -12.0, 12.0, 24.0]:
-		world.add_child(_make_box(Vector3(x, 2.8, -32.3), Vector3(0.18, 1.8, 0.18), Color("#252f33")))
-		world.add_child(_make_box(Vector3(x, 2.8, 32.3), Vector3(0.18, 1.8, 0.18), Color("#252f33")))
-	_add_watchtower(Vector3(-27, 0, -26))
-	_add_watchtower(Vector3(27, 0, -26))
-	_add_container(Vector3(-20, 0, -12), Vector3(8, 3.0, 3.0), Color("#455b5c"))
-	_add_container(Vector3(21, 0, 9), Vector3(8, 3.0, 3.0), Color("#5c5144"))
-	_add_container(Vector3(22, 0, -18), Vector3(4, 3.0, 7.0), Color("#46515b"))
-
-	# Cover, barricades, pallets and concrete blocks.
-	for i in range(6):
-		var z := -14.0 + float(i) * 5.0
-		world.add_child(_make_box(Vector3(-7.0, 0.75, z), Vector3(2.8, 1.5, 0.9), Color("#666d6b")))
-		world.add_child(_make_box(Vector3(7.0, 0.75, z + 2.0), Vector3(2.8, 1.5, 0.9), Color("#666d6b")))
-	_add_barricade(Vector3(-14, 0, 5))
-	_add_barricade(Vector3(14, 0, -7))
-	_add_pallet(Vector3(-17, 0, -5))
-	_add_pallet(Vector3(17, 0, 15))
-	_add_lamp(Vector3(-19, 0, 20))
-	_add_lamp(Vector3(19, 0, -22))
-	_add_objective_marker(Vector3(-15, 0, -16), "A")
-	_add_objective_marker(Vector3(0, 0, -20), "B")
-	_add_objective_marker(Vector3(15, 0, -13), "C")
+	_build_large_map()
 
 	player = CharacterBody3D.new()
 	player.name = "Player"
@@ -370,14 +334,279 @@ func _build_training_world() -> void:
 	camera.fov = 82.0
 	camera.current = true
 	camera.near = 0.05
-	camera.far = 180.0
+	camera.far = 1200.0
 	player.add_child(camera)
-	player.position = Vector3(0, 0, 25)
+	player.position = Vector3(-18, _terrain_height(-18, 420) + 0.2, 420)
 	look_yaw = 0.0
 	look_pitch = 0.0
 	previous_player_position = player.position
 	_build_weapon()
 	_spawn_training_targets()
+
+
+func _terrain_height(x: float, z: float) -> float:
+	# A broad central massif with a deliberately carved low corridor for the tunnel route.
+	var radial := sqrt(x * x + z * z)
+	var mountain := maxf(0.0, 1.0 - radial / 285.0)
+	var height := 5.0 + mountain * mountain * 138.0
+	height += sin(x * 0.027) * cos(z * 0.021) * 2.3
+	height += sin((x + z) * 0.061) * 0.8
+	# Cut a valley along the north-south tunnel approach; the tunnel portal and lining sit in it.
+	var corridor := exp(-pow(absf(x) / 19.0, 2.0))
+	height = lerpf(height, 27.0 + sin(z * 0.018) * 1.4, corridor * mountain)
+	return height
+
+func _build_large_map() -> void:
+	# 1 km x 1 km procedural terrain, with a height mesh and matching triangle collision.
+	var verts := PackedVector3Array()
+	var indices := PackedInt32Array()
+	var resolution := 101
+	var step := 10.0
+	for z_index in range(resolution):
+		for x_index in range(resolution):
+			var x := -500.0 + float(x_index) * step
+			var z := -500.0 + float(z_index) * step
+			verts.append(Vector3(x, _terrain_height(x, z), z))
+	for z_index in range(resolution - 1):
+		for x_index in range(resolution - 1):
+			var a := z_index * resolution + x_index
+			var b := a + 1
+			var c := a + resolution
+			var d := c + 1
+			indices.append_array(PackedInt32Array([a, c, b, b, c, d]))
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var terrain_mesh := ArrayMesh.new()
+	terrain_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	terrain_mesh.surface_set_material(0, _make_material(Color("#56634c"), 0.98))
+	var terrain_instance := MeshInstance3D.new()
+	terrain_instance.name = "1km_Terrain"
+	terrain_instance.mesh = terrain_mesh
+	terrain_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	world.add_child(terrain_instance)
+	var terrain_body := StaticBody3D.new()
+	terrain_body.name = "TerrainCollision"
+	var terrain_collision := CollisionShape3D.new()
+	terrain_collision.shape = terrain_mesh.create_trimesh_shape()
+	terrain_body.add_child(terrain_collision)
+	world.add_child(terrain_body)
+
+	# Dirt tracks, drainage cuts and broad highways approaching from both team bases.
+	_add_ground_patch(Vector3(0, 0, 0), Vector3(42, 0, 1000), Color("#444747"))
+	_add_road(Vector3(0, 0, 0), Vector3(18, 0.35, 1000), Color("#34393a"))
+	_add_road(Vector3(0, 0, 0), Vector3(30, 0.18, 1000), Color("#77776d"), true)
+	_add_road(Vector3(0, 0, 0), Vector3(0.35, 0.08, 1000), Color("#d2c9a3"), true)
+	for z in range(-460, 461, 40):
+		_add_ground_patch(Vector3(0, _terrain_height(0, float(z)) + 0.12, float(z)), Vector3(0.3, 0.12, 18), Color("#d7d0ad"))
+
+	# Twin bases at the map edges.
+	_add_base(Vector3(0, 0, 445), Color("#536c59"), "SOUTH / FRIENDLY")
+	_add_base(Vector3(0, 0, -445), Color("#75604d"), "NORTH / HOSTILE")
+
+	# Mountain tunnel: highway rises to a viaduct, then enters a lined passage through the massif.
+	_add_road(Vector3(0, 28, 155), Vector3(22, 0.8, 250), Color("#3b4041"))
+	for side in [-1.0, 1.0]:
+		for z in range(55, 276, 35):
+			var support := _make_box(Vector3(side * 9.0, 12.0, float(z)), Vector3(1.3, 24.0, 1.3), Color("#656b69"))
+			world.add_child(support)
+	_add_tunnel_portal(Vector3(0, 27, 145), false)
+	_add_tunnel_portal(Vector3(0, 27, -145), true)
+	_add_underground_facility(Vector3(24, 12, 0))
+
+	# Urban district: dense mid-rise blocks, side streets and a central plaza.
+	_add_city_district(Vector3(-245, 0, 25), 7, 5, 19.0, Color("#777b78"))
+	_add_city_district(Vector3(-280, 0, -215), 5, 4, 24.0, Color("#8b8174"))
+	# Factory district: sheds, stacks, tanks, loading yards and pipe racks.
+	_add_factory(Vector3(250, 0, -245))
+	# Airport: runway, taxiway, apron and hangars.
+	_add_airport(Vector3(300, 0, 265))
+	# Agricultural land and a patchwork of fields.
+	_add_farmland(Vector3(-285, 0, 285))
+	_add_farmland(Vector3(-405, 0, 115))
+	# Forest belts on the outer slopes and around the approaches.
+	_add_forest(Vector3(365, 0, 10), 8, 9, 15.0)
+	_add_forest(Vector3(375, 0, -345), 8, 8, 17.0)
+	_add_forest(Vector3(-390, 0, -360), 7, 8, 16.0)
+	_add_forest(Vector3(390, 0, 360), 7, 7, 16.0)
+
+	# Small compounds, rural roads and points of interest on the outer ring.
+	_add_rural_compound(Vector3(185, 0, 360))
+	_add_rural_compound(Vector3(-160, 0, -390))
+	_add_objective_marker(Vector3(-75, _terrain_height(-75, 35), 35), "A")
+	_add_objective_marker(Vector3(0, _terrain_height(0, -5), -5), "B")
+	_add_objective_marker(Vector3(75, _terrain_height(75, 35), 35), "C")
+
+func _add_ground_patch(center: Vector3, size: Vector3, color: Color) -> void:
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	var visual := MeshInstance3D.new()
+	visual.mesh = mesh
+	visual.position = Vector3(center.x, center.y, center.z)
+	visual.material_override = _make_material(color, 0.98)
+	world.add_child(visual)
+
+func _add_road(center: Vector3, size: Vector3, color: Color, visual_only: bool = false) -> void:
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	var visual := MeshInstance3D.new()
+	visual.mesh = mesh
+	visual.position = center
+	visual.material_override = _make_material(color, 0.92)
+	world.add_child(visual)
+	if not visual_only:
+		var body := StaticBody3D.new()
+		body.position = center
+		var collision := CollisionShape3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = size
+		collision.shape = shape
+		body.add_child(collision)
+		world.add_child(body)
+
+func _add_base(center: Vector3, accent: Color, label_text: String) -> void:
+	var ground_y := _terrain_height(center.x, center.z)
+	_add_ground_patch(Vector3(center.x, ground_y + 0.18, center.z), Vector3(105, 0.36, 92), Color("#454b49"))
+	for x in [-38.0, 38.0]:
+		world.add_child(_make_box(Vector3(center.x + x, ground_y + 2.0, center.z), Vector3(1.1, 4.0, 82), Color("#50595a")))
+	for i in range(7):
+		var x := center.x - 30.0 + float(i) * 10.0
+		world.add_child(_make_box(Vector3(x, ground_y + 2.0, center.z - 20.0), Vector3(7.5, 4.0, 10.0), accent))
+		world.add_child(_make_box(Vector3(x, ground_y + 1.6, center.z + 15.0), Vector3(8.0, 3.2, 12.0), Color("#656c68")))
+	_add_watchtower(Vector3(center.x - 42.0, ground_y, center.z - 35.0))
+	_add_watchtower(Vector3(center.x + 42.0, ground_y, center.z + 35.0))
+	var sign := Label3D.new()
+	sign.text = label_text
+	sign.font_size = 48
+	sign.position = Vector3(center.x, ground_y + 7.0, center.z - 43.0)
+	sign.modulate = accent.lightened(0.4)
+	world.add_child(sign)
+
+func _add_tunnel_portal(pos: Vector3, north_end: bool) -> void:
+	# Concrete portal frame and a dark tube. The terrain corridor is cut into the ridge around it.
+	for x in [-11.0, 11.0]:
+		world.add_child(_make_box(pos + Vector3(x, 5.5, 0), Vector3(2.0, 11.0, 2.2), Color("#656c6b")))
+	world.add_child(_make_box(pos + Vector3(0, 11.0, 0), Vector3(24.0, 2.0, 2.2), Color("#777d79")))
+	var tunnel := MeshInstance3D.new()
+	var tunnel_mesh := BoxMesh.new()
+	tunnel_mesh.size = Vector3(18, 10, 260)
+	tunnel.mesh = tunnel_mesh
+	tunnel.position = Vector3(0, 26.8, pos.z + (north_end ? 15.0 : -15.0))
+	tunnel.material_override = _make_material(Color("#171d20"), 0.98)
+	world.add_child(tunnel)
+	for offset in range(-120, 121, 20):
+		world.add_child(_make_box(Vector3(0, 31.6, pos.z + float(offset)), Vector3(18.0, 0.35, 0.35), Color("#4b5150")))
+
+func _add_underground_facility(pos: Vector3) -> void:
+	# Side entrance midway through the tunnel, with an illuminated descent into the bunker.
+	world.add_child(_make_box(pos + Vector3(0, -2.0, 0), Vector3(24, 1.0, 26), Color("#292f31")))
+	world.add_child(_make_box(pos + Vector3(0, 2.0, 0), Vector3(22, 1.0, 24), Color("#343b3d")))
+	world.add_child(_make_box(pos + Vector3(0, 0, -12.0), Vector3(22, 4.0, 1.0), Color("#444b4c")))
+	world.add_child(_make_box(pos + Vector3(0, 0, 12.0), Vector3(22, 4.0, 1.0), Color("#444b4c")))
+	world.add_child(_make_box(pos + Vector3(-10.5, 0, 0), Vector3(1.0, 4.0, 24), Color("#444b4c")))
+	world.add_child(_make_box(pos + Vector3(10.5, 0, 0), Vector3(1.0, 4.0, 24), Color("#444b4c")))
+	world.add_child(_make_box(pos + Vector3(0, 1.2, -11.0), Vector3(8.0, 2.4, 0.3), Color("#172126")))
+	for i in range(6):
+		world.add_child(_make_box(pos + Vector3(-5.0 + float(i) * 2.0, 2.2, -10.7), Vector3(0.12, 2.0, 0.12), Color("#b7d6c7")))
+	_add_road(pos + Vector3(0, -0.6, 0), Vector3(10, 0.25, 22), Color("#3d4648"))
+
+func _add_city_district(origin: Vector3, cols: int, rows: int, spacing: float, base_color: Color) -> void:
+	for z_index in range(rows):
+		for x_index in range(cols):
+			var x := origin.x + (float(x_index) - float(cols - 1) * 0.5) * spacing
+			var z := origin.z + (float(z_index) - float(rows - 1) * 0.5) * spacing
+			var h := 12.0 + float((x_index * 7 + z_index * 11) % 6) * 5.0
+			var w := 12.0 + float((x_index + z_index) % 3) * 2.0
+			var color := base_color.darkened(float((x_index + z_index) % 4) * 0.045)
+			var building := _make_box(Vector3(x, _terrain_height(x, z) + h * 0.5, z), Vector3(w, h, w), color, 0.9)
+			world.add_child(building)
+			# Recessed dark window bands on the street-facing facade.
+			for floor_index in range(1, int(h / 4.0)):
+				var windows := MeshInstance3D.new()
+				var mesh := BoxMesh.new()
+				mesh.size = Vector3(w * 0.72, 0.65, 0.08)
+				windows.mesh = mesh
+				windows.position = Vector3(x, _terrain_height(x, z) + float(floor_index) * 3.7, z - w * 0.5 - 0.05)
+				windows.material_override = _make_material(Color("#303c43"), 0.52, 0.08)
+				world.add_child(windows)
+
+func _add_factory(origin: Vector3) -> void:
+	for i in range(5):
+		var x := origin.x - 38.0 + float(i) * 19.0
+		var z := origin.z + float(i % 2) * 23.0
+		var y := _terrain_height(x, z)
+		world.add_child(_make_box(Vector3(x, y + 7.0, z), Vector3(15, 14, 24), Color("#77766b")))
+		world.add_child(_make_box(Vector3(x, y + 14.4, z), Vector3(16, 0.8, 25), Color("#434b4d")))
+	for i in range(4):
+		var x := origin.x + 48.0 + float(i) * 11.0
+		var y := _terrain_height(x, origin.z)
+		var tank := CylinderMesh.new()
+		tank.top_radius = 5.0
+		tank.bottom_radius = 5.0
+		tank.height = 15.0
+		var instance := MeshInstance3D.new()
+		instance.mesh = tank
+		instance.position = Vector3(x, y + 7.5, origin.z)
+		instance.material_override = _make_material(Color("#8b8d83"), 0.5, 0.25)
+		world.add_child(instance)
+		world.add_child(_make_box(Vector3(x, y + 16.0, origin.z), Vector3(1.0, 2.0, 1.0), Color("#454b4b")))
+
+func _add_airport(origin: Vector3) -> void:
+	var y := _terrain_height(origin.x, origin.z)
+	_add_ground_patch(Vector3(origin.x, y + 0.15, origin.z), Vector3(190, 0.3, 330), Color("#484e4d"))
+	_add_road(Vector3(origin.x, y + 0.32, origin.z), Vector3(24, 0.12, 285), Color("#282e31"), true)
+	for z_offset in [-132.0, 132.0]:
+		for x_offset in [-10.0, 10.0]:
+			_add_ground_patch(Vector3(origin.x + x_offset, y + 0.4, origin.z + z_offset), Vector3(0.45, 0.08, 4), Color("#dedbc6"))
+	for i in range(3):
+		var x := origin.x + 42.0 + float(i) * 28.0
+		world.add_child(_make_box(Vector3(x, y + 7.0, origin.z - 75.0), Vector3(22, 14, 34), Color("#777e7c")))
+		world.add_child(_make_box(Vector3(x, y + 14.2, origin.z - 75.0), Vector3(23, 0.6, 35), Color("#42494b")))
+	for i in range(5):
+		var x := origin.x - 72.0 + float(i) * 28.0
+		_add_ground_patch(Vector3(x, y + 0.35, origin.z + 95.0), Vector3(0.4, 0.08, 18), Color("#e0d7a8"))
+
+func _add_farmland(origin: Vector3) -> void:
+	for i in range(5):
+		var x := origin.x + float(i) * 25.0
+		for j in range(4):
+			var z := origin.z + float(j) * 32.0
+			var field_color := Color("#6e7950") if (i + j) % 2 == 0 else Color("#89784e")
+			_add_ground_patch(Vector3(x, _terrain_height(x, z) + 0.12, z), Vector3(22, 0.22, 28), field_color)
+			for row in range(7):
+				var row_z := z - 11.0 + float(row) * 3.2
+				_add_ground_patch(Vector3(x, _terrain_height(x, row_z) + 0.25, row_z), Vector3(20, 0.08, 0.18), field_color.darkened(0.2))
+
+func _add_forest(origin: Vector3, cols: int, rows: int, spacing: float) -> void:
+	for z_index in range(rows):
+		for x_index in range(cols):
+			var x := origin.x + (float(x_index) - float(cols - 1) * 0.5) * spacing
+			var z := origin.z + (float(z_index) - float(rows - 1) * 0.5) * spacing
+			var y := _terrain_height(x, z)
+			var trunk := CylinderMesh.new()
+			trunk.top_radius = 0.5
+			trunk.bottom_radius = 0.8
+			trunk.height = 7.0 + float((x_index + z_index) % 4)
+			var trunk_instance := MeshInstance3D.new()
+			trunk_instance.mesh = trunk
+			trunk_instance.position = Vector3(x, y + trunk.height * 0.5, z)
+			trunk_instance.material_override = _make_material(Color("#4b3e30"), 0.95)
+			world.add_child(trunk_instance)
+			var crown := SphereMesh.new()
+			crown.radius = 4.2 + float((x_index * 3 + z_index) % 3)
+			crown.height = crown.radius * 2.2
+			var crown_instance := MeshInstance3D.new()
+			crown_instance.mesh = crown
+			crown_instance.position = Vector3(x, y + 8.0 + crown.radius * 0.55, z)
+			crown_instance.material_override = _make_material(Color("#344b35").darkened(float((x_index + z_index) % 4) * 0.08), 0.96)
+			world.add_child(crown_instance)
+
+func _add_rural_compound(origin: Vector3) -> void:
+	var y := _terrain_height(origin.x, origin.z)
+	for x_offset in [-12.0, 12.0]:
+		world.add_child(_make_box(Vector3(origin.x + x_offset, y + 3.0, origin.z), Vector3(18, 6, 16), Color("#89877b")))
+	world.add_child(_make_box(Vector3(origin.x, y + 0.15, origin.z + 15), Vector3(48, 0.3, 38), Color("#6b6858")))
 
 func _make_material(color: Color, roughness: float = 0.82, metallic: float = 0.0, emission: Color = Color.BLACK) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -580,7 +809,7 @@ func _add_weapon_cylinder(pos: Vector3, radius: float, height: float, color: Col
 	weapon_root.add_child(instance)
 
 func _spawn_training_targets() -> void:
-	var positions := [Vector3(-14, 0, -9), Vector3(-5, 0, -17), Vector3(5, 0, -15), Vector3(14, 0, -7), Vector3(0, 0, 1), Vector3(-23, 0, 8), Vector3(24, 0, -3), Vector3(8, 0, 20)]
+	var positions := [Vector3(-34, 0, 385), Vector3(-10, 0, 390), Vector3(14, 0, 382), Vector3(36, 0, 400), Vector3(-28, 0, 445), Vector3(8, 0, 448), Vector3(31, 0, 430), Vector3(0, 0, 365)]
 	for i in range(positions.size()):
 		var target := _make_soldier_target(i + 1)
 		target.position = positions[i]
