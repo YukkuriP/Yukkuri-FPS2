@@ -417,6 +417,8 @@ func _build_large_map() -> void:
 	# Urban district: dense mid-rise blocks, side streets and a central plaza.
 	_add_city_district(Vector3(-245, 0, 25), 7, 5, 19.0, Color("#777b78"))
 	_add_city_district(Vector3(-280, 0, -215), 5, 4, 24.0, Color("#8b8174"))
+	_add_urban_road_grid(Vector3(-245, 0, 25), 7, 5, 19.0)
+	_add_urban_road_grid(Vector3(-280, 0, -215), 5, 4, 24.0)
 	# Factory district: sheds, stacks, tanks, loading yards and pipe racks.
 	_add_factory(Vector3(250, 0, -245))
 	# Airport: runway, taxiway, apron and hangars.
@@ -424,6 +426,7 @@ func _build_large_map() -> void:
 	# Agricultural land and a patchwork of fields.
 	_add_farmland(Vector3(-285, 0, 285))
 	_add_farmland(Vector3(-405, 0, 115))
+	_add_roadside_infrastructure()
 	# Forest belts on the outer slopes and around the approaches.
 	_add_forest(Vector3(365, 0, 10), 8, 9, 15.0)
 	_add_forest(Vector3(375, 0, -345), 8, 8, 17.0)
@@ -463,6 +466,128 @@ func _add_road(center: Vector3, size: Vector3, color: Color, visual_only: bool =
 		collision.shape = shape
 		body.add_child(collision)
 		world.add_child(body)
+
+
+
+func _add_roadside_infrastructure() -> void:
+	# Edge-to-edge highway has shoulders and guardrails; the local city streets above
+	# carry sidewalks, crosswalks, traffic signals, street lighting and utility lines.
+	for z in range(-430, 431, 35):
+		var y := _terrain_height(0.0, float(z))
+		for side in [-1.0, 1.0]:
+			world.add_child(_make_box(Vector3(side * 10.2, y + 0.9, float(z)), Vector3(0.22, 1.0, 34.0), Color("#858984")))
+			world.add_child(_make_box(Vector3(side * 10.2, y + 1.45, float(z)), Vector3(0.12, 0.12, 34.0), Color("#a9aaa0")))
+	# Highway lighting on the approaches; no pedestrian sidewalk is placed on the motorway.
+	for z in range(-400, 401, 80):
+		var y := _terrain_height(0.0, float(z))
+		for side in [-1.0, 1.0]:
+			var x := side * 17.0
+			world.add_child(_make_box(Vector3(x, y + 4.0, float(z)), Vector3(0.3, 8.0, 0.3), Color("#555c5e")))
+			world.add_child(_make_box(Vector3(x - side * 2.0, y + 8.0, float(z)), Vector3(4.0, 0.22, 0.22), Color("#555c5e")))
+			var lamp := SphereMesh.new()
+			lamp.radius = 0.25
+			lamp.height = 0.5
+			var lamp_instance := MeshInstance3D.new()
+			lamp_instance.mesh = lamp
+			lamp_instance.position = Vector3(x - side * 3.7, y + 7.8, float(z))
+			lamp_instance.material_override = _make_material(Color("#e3d9a9"), 0.3, 0.0, Color("#c9bb82"))
+			world.add_child(lamp_instance)
+
+func _add_urban_road_grid(origin: Vector3, cols: int, rows: int, spacing: float) -> void:
+	# Local streets are built in short terrain-following sections with curbs, sidewalks,
+	# dashed lane markings, streetlights, intersections and overhead utility wires.
+	var x_min := origin.x - float(cols - 1) * spacing * 0.5 - spacing * 0.5
+	var x_max := origin.x + float(cols - 1) * spacing * 0.5 + spacing * 0.5
+	var z_min := origin.z - float(rows - 1) * spacing * 0.5 - spacing * 0.5
+	var z_max := origin.z + float(rows - 1) * spacing * 0.5 + spacing * 0.5
+	var segment := 8.0
+	# Streets running east-west between building rows.
+	for row_index in range(rows + 1):
+		var z := origin.z + (float(row_index) - float(rows - 1) * 0.5 - 0.5) * spacing
+		for x_step in range(int(ceil((x_max - x_min) / segment))):
+			var x := x_min + float(x_step) * segment
+			var length := minf(segment, x_max - x)
+			var y := _terrain_height(x + length * 0.5, z)
+			_add_road(Vector3(x + length * 0.5, y + 0.12, z), Vector3(length, 0.22, 7.0), Color("#353a3b"))
+			# Raised concrete curbs and pale sidewalk slabs on both sides.
+			for side in [-1.0, 1.0]:
+				_add_ground_patch(Vector3(x + length * 0.5, y + 0.18, z + side * 5.0), Vector3(length, 0.24, 2.6), Color("#aaa99e"))
+				_add_ground_patch(Vector3(x + length * 0.5, y + 0.27, z + side * 3.65), Vector3(length, 0.32, 0.22), Color("#777b79"))
+			# Broken white centre line, kept out of intersections.
+			if int(floor((x - x_min) / 4.0)) % 3 == 0 and length > 2.5:
+				_add_ground_patch(Vector3(x + length * 0.5, y + 0.245, z), Vector3(minf(2.8, length), 0.035, 0.13), Color("#e3e0d3"))
+	# Streets running north-south.
+	for col_index in range(cols + 1):
+		var x := origin.x + (float(col_index) - float(cols - 1) * 0.5 - 0.5) * spacing
+		for z_step in range(int(ceil((z_max - z_min) / segment))):
+			var z := z_min + float(z_step) * segment
+			var length := minf(segment, z_max - z)
+			var y := _terrain_height(x, z + length * 0.5)
+			_add_road(Vector3(x, y + 0.12, z + length * 0.5), Vector3(7.0, 0.22, length), Color("#353a3b"))
+			for side in [-1.0, 1.0]:
+				_add_ground_patch(Vector3(x + side * 5.0, y + 0.18, z + length * 0.5), Vector3(2.6, 0.24, length), Color("#aaa99e"))
+				_add_ground_patch(Vector3(x + side * 3.65, y + 0.27, z + length * 0.5), Vector3(0.22, 0.32, length), Color("#777b79"))
+			if int(floor((z - z_min) / 4.0)) % 3 == 0 and length > 2.5:
+				_add_ground_patch(Vector3(x, y + 0.245, z + length * 0.5), Vector3(0.13, 0.035, minf(2.8, length)), Color("#e3e0d3"))
+	# Zebra crossings and traffic signals at selected major junctions.
+	for ix in range(1, cols, 3):
+		for iz in range(1, rows, 2):
+			var x := origin.x + (float(ix) - float(cols - 1) * 0.5) * spacing
+			var z := origin.z + (float(iz) - float(rows - 1) * 0.5) * spacing
+			var y := _terrain_height(x, z)
+			for stripe in range(6):
+				_add_ground_patch(Vector3(x - 2.5 + float(stripe), y + 0.27, z), Vector3(0.45, 0.04, 5.5), Color("#e0dfd5"))
+			_add_traffic_signal(Vector3(x + 5.0, y, z + 5.0))
+	# Utility poles with crossarms and sagged-looking overhead wire runs along residential streets.
+	var pole_x := x_min - 5.0
+	for pole_index in range(int(ceil((z_max - z_min) / 28.0)) + 1):
+		var z := z_min + float(pole_index) * 28.0
+		if z > z_max:
+			break
+		_add_utility_pole(Vector3(pole_x, _terrain_height(pole_x, z), z))
+	for pole_index in range(int(ceil((z_max - z_min) / 28.0))):
+		var z1 := z_min + float(pole_index) * 28.0
+		var z2 := minf(z1 + 28.0, z_max)
+		var mid_z := (z1 + z2) * 0.5
+		var mid_y := (_terrain_height(pole_x, z1) + _terrain_height(pole_x, z2)) * 0.5 + 8.5
+		var wire := MeshInstance3D.new()
+		var wire_mesh := BoxMesh.new()
+		wire_mesh.size = Vector3(0.055, 0.055, z2 - z1)
+		wire.mesh = wire_mesh
+		wire.position = Vector3(pole_x, mid_y - 0.4, mid_z)
+		wire.material_override = _make_material(Color("#252a2b"), 0.7, 0.35)
+		world.add_child(wire)
+
+func _add_traffic_signal(pos: Vector3) -> void:
+	# Compact roadside signal head with red, amber and green lenses.
+	world.add_child(_make_box(pos + Vector3(0, 3.1, 0), Vector3(0.16, 6.2, 0.16), Color("#4c5252")))
+	world.add_child(_make_box(pos + Vector3(-0.65, 6.0, 0), Vector3(1.4, 1.8, 0.7), Color("#24292b")))
+	for i in range(3):
+		var lens_color := Color("#d34b40") if i == 0 else (Color("#d5a84c") if i == 1 else Color("#5f9d68"))
+		var lens := SphereMesh.new()
+		lens.radius = 0.19
+		lens.height = 0.38
+		var lamp := MeshInstance3D.new()
+		lamp.mesh = lens
+		lamp.position = pos + Vector3(-0.65, 6.55 - float(i) * 0.55, 0.38)
+		lamp.material_override = _make_material(lens_color, 0.35, 0.0, lens_color * 0.22)
+		world.add_child(lamp)
+	world.add_child(_make_box(pos + Vector3(-0.65, 4.8, 0.0), Vector3(1.4, 0.12, 0.7), Color("#343a3b")))
+
+func _add_utility_pole(pos: Vector3) -> void:
+	# Weathered concrete pole, crossarm, insulators and dark overhead cables.
+	world.add_child(_make_box(pos + Vector3(0, 4.0, 0), Vector3(0.32, 8.0, 0.32), Color("#77786f")))
+	world.add_child(_make_box(pos + Vector3(0, 7.3, 0), Vector3(2.2, 0.18, 0.22), Color("#625f56")))
+	for offset in [-0.75, 0.0, 0.75]:
+		var insulator := CylinderMesh.new()
+		insulator.top_radius = 0.11
+		insulator.bottom_radius = 0.14
+		insulator.height = 0.3
+		var instance := MeshInstance3D.new()
+		instance.mesh = insulator
+		instance.position = pos + Vector3(offset, 7.55, 0)
+		instance.material_override = _make_material(Color("#a5a89e"), 0.55)
+		world.add_child(instance)
 
 func _add_base(center: Vector3, accent: Color, label_text: String) -> void:
 	var ground_y := _terrain_height(center.x, center.z)
