@@ -338,7 +338,7 @@ func _build_training_world() -> void:
 	camera.near = 0.05
 	camera.far = 1200.0
 	player.add_child(camera)
-	player.position = Vector3(-18, _terrain_height(-18, 420) + 0.5, 420)
+	player.position = Vector3(0, _terrain_height(0.0, 420.0) + 0.62, 420.0)
 	look_yaw = 0.0
 	look_pitch = 0.0
 	previous_player_position = player.position
@@ -1206,10 +1206,10 @@ func _physics_process(delta: float) -> void:
 		if mission_time <= 0.0:
 			mission_failed = true
 	_update_hud()
-	var input_dir := Vector2(
-		Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
-		Input.get_action_strength("move_back") - Input.get_action_strength("move_forward")
-	)
+	# Read physical keys directly as a fallback if input actions are missing or remapped.
+	var input_x := float(Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT)) - float(Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT))
+	var input_y := float(Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN)) - float(Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP))
+	var input_dir := Vector2(input_x, input_y)
 	# Move relative to the player's current yaw, never world-axis WASD.
 	# Flatten the transformed vector so pitch/vertical components cannot skew movement.
 	var move_basis := Basis(Vector3.UP, player.global_rotation.y)
