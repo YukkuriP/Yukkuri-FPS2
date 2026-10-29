@@ -297,7 +297,7 @@ func _build_training_world() -> void:
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_BG
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.08
-	env.glow_enabled = false # Low-memory preset: avoids an extra full-screen post-process buffer.
+	env.glow_enabled = true
 	env.glow_intensity = 0.45
 	env.glow_strength = 0.8
 	env.glow_bloom = 0.08
