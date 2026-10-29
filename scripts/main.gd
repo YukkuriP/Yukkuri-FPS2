@@ -349,28 +349,54 @@ func _build_training_world() -> void:
 
 
 func _terrain_height(x: float, z: float) -> float:
-	# A broad central massif with a deliberately carved low corridor for the tunnel route.
+	# Multi-scale terrain: broad landforms, rolling hills, erosion-like cuts and rocky ridges.
 	var radial := sqrt(x * x + z * z)
-	var mountain := maxf(0.0, 1.0 - radial / 285.0)
-	var height := 5.0 + mountain * mountain * 138.0
-	height += sin(x * 0.027) * cos(z * 0.021) * 2.3
-	height += sin((x + z) * 0.061) * 0.8
-	# Cut a valley along the north-south tunnel approach; the tunnel portal and lining sit in it.
-	var corridor := exp(-pow(absf(x) / 19.0, 2.0))
-	height = lerpf(height, 27.0 + sin(z * 0.018) * 1.4, corridor * mountain)
+	var mountain := maxf(0.0, 1.0 - radial / 330.0)
+	var broad_noise := sin(x * 0.008 + sin(z * 0.006)) * cos(z * 0.009) * 5.0
+	var rolling := sin(x * 0.023 + z * 0.012) * cos(z * 0.019 - x * 0.007) * 2.4
+	var fine_noise := sin(x * 0.071 + z * 0.039) * cos(z * 0.063 - x * 0.045) * 0.7
+	var ridges := absf(sin(x * 0.014 + z * 0.011)) * 4.0
+	var height := 4.0 + broad_noise + rolling + fine_noise
+	height += mountain * mountain * (112.0 + ridges + sin(x * 0.031) * cos(z * 0.027) * 13.0)
+	# Low, gently undulating north-south corridor for the highway and tunnel approaches.
+	var corridor := exp(-pow(absf(x) / 25.0, 2.0))
+	height = lerpf(height, 25.0 + sin(z * 0.012) * 1.8 + broad_noise * 0.25, corridor * mountain)
 	return height
 
 func _build_large_map() -> void:
-	# 1 km x 1 km procedural terrain, with a height mesh and matching triangle collision.
+	# 1 km x 1 km terrain with multi-scale elevation, vertex-colour biomes and fine procedural surface texture.
 	var verts := PackedVector3Array()
 	var indices := PackedInt32Array()
-	var resolution := 101
-	var step := 10.0
+	var colors := PackedColorArray()
+	var uvs := PackedVector2Array()
+	var resolution := 201
+	var step := 5.0
+	var surface_noise := FastNoiseLite.new()
+	surface_noise.seed = 7419
+	surface_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	surface_noise.frequency = 0.035
+	surface_noise.fractal_octaves = 4
+	surface_noise.fractal_gain = 0.52
 	for z_index in range(resolution):
 		for x_index in range(resolution):
 			var x := -500.0 + float(x_index) * step
 			var z := -500.0 + float(z_index) * step
-			verts.append(Vector3(x, _terrain_height(x, z), z))
+			var h := _terrain_height(x, z)
+			verts.append(Vector3(x, h, z))
+			uvs.append(Vector2((x + 500.0) / 18.0, (z + 500.0) / 18.0))
+			var grain := surface_noise.get_noise_2d(x, z)
+			var moisture := surface_noise.get_noise_2d(x + 1700.0, z - 900.0)
+			var biome := Color("#526448")
+			if h > 92.0:
+				biome = Color("#686b64") if h < 124.0 else Color("#888980")
+			elif h > 58.0:
+				biome = Color("#686b55")
+			elif moisture < -0.32:
+				biome = Color("#756b50")
+			elif moisture > 0.32:
+				biome = Color("#405943")
+			biome = biome * (0.88 + (grain + 1.0) * 0.10)
+			colors.append(biome)
 	for z_index in range(resolution - 1):
 		for x_index in range(resolution - 1):
 			var a := z_index * resolution + x_index
@@ -382,13 +408,29 @@ func _build_large_map() -> void:
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_INDEX] = indices
+	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
 	var terrain_mesh := ArrayMesh.new()
 	terrain_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	terrain_mesh.surface_set_material(0, _make_material(Color("#56634c"), 0.98))
+	var terrain_material := _make_material(Color.WHITE, 1.0)
+	terrain_material.vertex_color_use_as_albedo = true
+	var detail_noise := FastNoiseLite.new()
+	detail_noise.seed = 29031
+	detail_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	detail_noise.frequency = 0.075
+	detail_noise.fractal_octaves = 3
+	var detail_texture := NoiseTexture2D.new()
+	detail_texture.width = 512
+	detail_texture.height = 512
+	detail_texture.seamless = true
+	detail_texture.noise = detail_noise
+	terrain_material.albedo_texture = detail_texture
+	terrain_material.roughness = 1.0
+	terrain_mesh.surface_set_material(0, terrain_material)
 	var terrain_instance := MeshInstance3D.new()
 	terrain_instance.name = "1km_Terrain"
 	terrain_instance.mesh = terrain_mesh
-	terrain_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	terrain_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	world.add_child(terrain_instance)
 	var terrain_body := StaticBody3D.new()
 	terrain_body.name = "TerrainCollision"
@@ -397,8 +439,7 @@ func _build_large_map() -> void:
 	terrain_body.add_child(terrain_collision)
 	world.add_child(terrain_body)
 
-	# Continuous fallback ground beneath the procedural terrain. This fills any tiny
-	# gaps at terrain mesh edges and provides a solid lower boundary if the player falls.
+	# Continuous fallback ground beneath the procedural terrain.
 	var ground_mesh := PlaneMesh.new()
 	ground_mesh.size = Vector2(1000.0, 1000.0)
 	var ground_visual := MeshInstance3D.new()
@@ -418,18 +459,15 @@ func _build_large_map() -> void:
 	ground_body.add_child(ground_shape)
 	world.add_child(ground_body)
 
-	# Dirt tracks, drainage cuts and broad highways approaching from both team bases.
+	# Highway and rural access road surfaces.
 	for z in range(-495, 500, 10):
 		var road_y := _terrain_height(0.0, float(z))
 		_add_road(Vector3(0, road_y + 0.28, float(z)), Vector3(18, 0.35, 10.2), Color("#34393a"))
 		_add_road(Vector3(0, road_y + 0.48, float(z)), Vector3(30, 0.08, 10.2), Color("#77776d"), true)
 		_add_road(Vector3(0, road_y + 0.54, float(z)), Vector3(0.35, 0.06, 10.2), Color("#d2c9a3"), true)
 
-	# Twin bases at the map edges.
 	_add_base(Vector3(0, 0, 445), Color("#536c59"), "SOUTH / FRIENDLY")
 	_add_base(Vector3(0, 0, -445), Color("#75604d"), "NORTH / HOSTILE")
-
-	# Mountain tunnel: highway rises to a viaduct, then enters a lined passage through the massif.
 	_add_road(Vector3(0, 28, 155), Vector3(22, 0.8, 250), Color("#3b4041"))
 	for side in [-1.0, 1.0]:
 		for z in range(55, 276, 35):
@@ -438,27 +476,19 @@ func _build_large_map() -> void:
 	_add_tunnel_portal(Vector3(0, 27, 145), false)
 	_add_tunnel_portal(Vector3(0, 27, -145), true)
 	_add_underground_facility(Vector3(24, 12, 0))
-
-	# Urban district: dense mid-rise blocks, side streets and a central plaza.
 	_add_city_district(Vector3(-245, 0, 25), 7, 5, 19.0, Color("#777b78"))
 	_add_city_district(Vector3(-280, 0, -215), 5, 4, 24.0, Color("#8b8174"))
 	_add_urban_road_grid(Vector3(-245, 0, 25), 7, 5, 19.0)
 	_add_urban_road_grid(Vector3(-280, 0, -215), 5, 4, 24.0)
-	# Factory district: sheds, stacks, tanks, loading yards and pipe racks.
 	_add_factory(Vector3(250, 0, -245))
-	# Airport: runway, taxiway, apron and hangars.
 	_add_airport(Vector3(300, 0, 265))
-	# Agricultural land and a patchwork of fields.
 	_add_farmland(Vector3(-285, 0, 285))
 	_add_farmland(Vector3(-405, 0, 115))
 	_add_roadside_infrastructure()
-	# Forest belts on the outer slopes and around the approaches.
 	_add_forest(Vector3(365, 0, 10), 8, 9, 15.0)
 	_add_forest(Vector3(375, 0, -345), 8, 8, 17.0)
 	_add_forest(Vector3(-390, 0, -360), 7, 8, 16.0)
 	_add_forest(Vector3(390, 0, 360), 7, 7, 16.0)
-
-	# Small compounds, rural roads and points of interest on the outer ring.
 	_add_rural_compound(Vector3(185, 0, 360))
 	_add_rural_compound(Vector3(-160, 0, -390))
 	_add_objective_marker(Vector3(-75, _terrain_height(-75, 35), 35), "A")
