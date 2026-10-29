@@ -769,28 +769,58 @@ func _add_farmland(origin: Vector3) -> void:
 				_add_ground_patch(Vector3(x, _terrain_height(x, row_z) + 0.25, row_z), Vector3(20, 0.08, 0.18), field_color.darkened(0.2))
 
 func _add_forest(origin: Vector3, cols: int, rows: int, spacing: float) -> void:
+	# Use two MultiMesh batches per forest cluster: same silhouette and variation,
+	# substantially fewer draw calls and scene nodes for low-memory PCs.
+	var tree_count := cols * rows
+	var trunk_mesh := CylinderMesh.new()
+	trunk_mesh.top_radius = 0.5
+	trunk_mesh.bottom_radius = 0.8
+	trunk_mesh.height = 10.0
+	trunk_mesh.radial_segments = 8
+	var trunk_material := _make_material(Color.WHITE, 0.95)
+	trunk_material.vertex_color_use_as_albedo = true
+	var trunks := MultiMesh.new()
+	trunks.transform_format = MultiMesh.TRANSFORM_3D
+	trunks.use_colors = true
+	trunks.mesh = trunk_mesh
+	trunks.instance_count = tree_count
+	var crown_mesh := SphereMesh.new()
+	crown_mesh.radius = 1.0
+	crown_mesh.height = 2.2
+	crown_mesh.radial_segments = 10
+	crown_mesh.rings = 6
+	var crown_material := _make_material(Color.WHITE, 0.96)
+	crown_material.vertex_color_use_as_albedo = true
+	var crowns := MultiMesh.new()
+	crowns.transform_format = MultiMesh.TRANSFORM_3D
+	crowns.use_colors = true
+	crowns.mesh = crown_mesh
+	crowns.instance_count = tree_count
+	var instance_index := 0
 	for z_index in range(rows):
 		for x_index in range(cols):
 			var x := origin.x + (float(x_index) - float(cols - 1) * 0.5) * spacing
 			var z := origin.z + (float(z_index) - float(rows - 1) * 0.5) * spacing
 			var y := _terrain_height(x, z)
-			var trunk := CylinderMesh.new()
-			trunk.top_radius = 0.5
-			trunk.bottom_radius = 0.8
-			trunk.height = 7.0 + float((x_index + z_index) % 4)
-			var trunk_instance := MeshInstance3D.new()
-			trunk_instance.mesh = trunk
-			trunk_instance.position = Vector3(x, y + trunk.height * 0.5, z)
-			trunk_instance.material_override = _make_material(Color("#4b3e30"), 0.95)
-			world.add_child(trunk_instance)
-			var crown := SphereMesh.new()
-			crown.radius = 4.2 + float((x_index * 3 + z_index) % 3)
-			crown.height = crown.radius * 2.2
-			var crown_instance := MeshInstance3D.new()
-			crown_instance.mesh = crown
-			crown_instance.position = Vector3(x, y + 8.0 + crown.radius * 0.55, z)
-			crown_instance.material_override = _make_material(Color("#344b35").darkened(float((x_index + z_index) % 4) * 0.08), 0.96)
-			world.add_child(crown_instance)
+			var trunk_height := 7.0 + float((x_index + z_index) % 4)
+			var trunk_transform := Transform3D(Basis.from_scale(Vector3(1.0, trunk_height / 10.0, 1.0)), Vector3(x, y + trunk_height * 0.5, z))
+			trunks.set_instance_transform(instance_index, trunk_transform)
+			trunks.set_instance_color(instance_index, Color("#4b3e30"))
+			var crown_radius := 4.2 + float((x_index * 3 + z_index) % 3)
+			var crown_transform := Transform3D(Basis.from_scale(Vector3.ONE * crown_radius), Vector3(x, y + 8.0 + crown_radius * 0.55, z))
+			crowns.set_instance_transform(instance_index, crown_transform)
+			crowns.set_instance_color(instance_index, Color("#344b35").darkened(float((x_index + z_index) % 4) * 0.08))
+			instance_index += 1
+	var trunk_instance := MultiMeshInstance3D.new()
+	trunk_instance.name = "ForestTrunks"
+	trunk_instance.multimesh = trunks
+	trunk_instance.material_override = trunk_material
+	world.add_child(trunk_instance)
+	var crown_instance := MultiMeshInstance3D.new()
+	crown_instance.name = "ForestCanopies"
+	crown_instance.multimesh = crowns
+	crown_instance.material_override = crown_material
+	world.add_child(crown_instance)
 
 func _add_rural_compound(origin: Vector3) -> void:
 	var y := _terrain_height(origin.x, origin.z)
