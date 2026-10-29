@@ -366,6 +366,7 @@ func _terrain_height(x: float, z: float) -> float:
 func _build_large_map() -> void:
 	# 1 km x 1 km terrain with multi-scale elevation, vertex-colour biomes and fine procedural surface texture.
 	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
 	var indices := PackedInt32Array()
 	var colors := PackedColorArray()
 	var uvs := PackedVector2Array()
@@ -383,6 +384,12 @@ func _build_large_map() -> void:
 			var z := -500.0 + float(z_index) * step
 			var h := _terrain_height(x, z)
 			verts.append(Vector3(x, h, z))
+			# Finite-difference normals smooth the terrain lighting without reducing mesh detail.
+			var h_left := _terrain_height(x - step, z)
+			var h_right := _terrain_height(x + step, z)
+			var h_back := _terrain_height(x, z - step)
+			var h_front := _terrain_height(x, z + step)
+			normals.append(Vector3(h_left - h_right, step * 2.0, h_back - h_front).normalized())
 			uvs.append(Vector2((x + 500.0) / 18.0, (z + 500.0) / 18.0))
 			var grain := surface_noise.get_noise_2d(x, z)
 			var moisture := surface_noise.get_noise_2d(x + 1700.0, z - 900.0)
@@ -407,6 +414,7 @@ func _build_large_map() -> void:
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
 	arrays[Mesh.ARRAY_INDEX] = indices
 	arrays[Mesh.ARRAY_COLOR] = colors
 	arrays[Mesh.ARRAY_TEX_UV] = uvs
@@ -1152,8 +1160,12 @@ func _update_hud() -> void:
 		elif mission_complete:
 			status_label.text = "SECTOR CLEARED  •  PRESS ENTER TO PLAY AGAIN"
 			status_label.add_theme_color_override("font_color", GREEN)
+		elif flight_mode:
+			status_label.text = "FLIGHT MODE  •  SPACE UP / CTRL DOWN / SHIFT BOOST"
+			status_label.add_theme_color_override("font_color", ACCENT)
 		else:
-			status_label.text = "HOSTILES  %d / 8    •    TIME  %03d" % [targets_remaining, int(ceil(mission_time))]
+			status_label.text = "MAP FREE ROAM  •  NO AI / NO MISSION TIMER"
+			status_label.add_theme_color_override("font_color", ACCENT)
 	if is_instance_valid(score_label):
 		score_label.text = "SCORE  %07d   •   STREAK x%d   •   BEST x%d" % [score, kill_streak, best_streak]
 
@@ -1269,10 +1281,7 @@ func _physics_process(delta: float) -> void:
 			reserve_ammo -= loaded
 			reloading = false
 	_update_hud()
-	if not mission_complete and not mission_failed:
-		mission_time = maxf(0.0, mission_time - delta)
-		if mission_time <= 0.0:
-			mission_failed = true
+	# Map-first development build: exploration is untimed so players can inspect the full map.
 	_update_hud()
 	# Physical-key fallback keeps movement usable even if project input mappings differ.
 	var input_x := float(Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT)) - float(Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT))
