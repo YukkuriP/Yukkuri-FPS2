@@ -397,6 +397,27 @@ func _build_large_map() -> void:
 	terrain_body.add_child(terrain_collision)
 	world.add_child(terrain_body)
 
+	# Continuous fallback ground beneath the procedural terrain. This fills any tiny
+	# gaps at terrain mesh edges and provides a solid lower boundary if the player falls.
+	var ground_mesh := PlaneMesh.new()
+	ground_mesh.size = Vector2(1000.0, 1000.0)
+	var ground_visual := MeshInstance3D.new()
+	ground_visual.name = "FallbackGroundVisual"
+	ground_visual.mesh = ground_mesh
+	ground_visual.position = Vector3(0.0, -2.0, 0.0)
+	ground_visual.material_override = _make_material(Color("#4b5940"), 1.0)
+	ground_visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	world.add_child(ground_visual)
+	var ground_body := StaticBody3D.new()
+	ground_body.name = "FallbackGroundCollision"
+	ground_body.position = Vector3(0.0, -2.6, 0.0)
+	var ground_shape := CollisionShape3D.new()
+	var ground_box := BoxShape3D.new()
+	ground_box.size = Vector3(1000.0, 1.0, 1000.0)
+	ground_shape.shape = ground_box
+	ground_body.add_child(ground_shape)
+	world.add_child(ground_body)
+
 	# Dirt tracks, drainage cuts and broad highways approaching from both team bases.
 	for z in range(-495, 500, 10):
 		var road_y := _terrain_height(0.0, float(z))
