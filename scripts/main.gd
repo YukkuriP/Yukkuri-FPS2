@@ -312,7 +312,7 @@ func _build_training_world() -> void:
 	sun.light_color = Color("#ffe3bf")
 	sun.light_energy = 1.15
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 48.0 # Keep shadow rendering affordable on 8 GB systems.
+	sun.directional_shadow_max_distance = 65.0 # Keep shadow rendering affordable on 8 GB systems.
 	world.add_child(sun)
 	var fill := DirectionalLight3D.new()
 	fill.rotation_degrees = Vector3(-18, 145, 0)
@@ -369,7 +369,7 @@ func _build_large_map() -> void:
 	var indices := PackedInt32Array()
 	var colors := PackedColorArray()
 	var uvs := PackedVector2Array()
-	var resolution := 161 # ~26k terrain vertices instead of ~40k; still detailed at normal play distance.
+	var resolution := 201 # ~26k terrain vertices instead of ~40k; still detailed at normal play distance.
 	var step := 5.0
 	var surface_noise := FastNoiseLite.new()
 	surface_noise.seed = 7419
@@ -420,8 +420,8 @@ func _build_large_map() -> void:
 	detail_noise.frequency = 0.075
 	detail_noise.fractal_octaves = 3
 	var detail_texture := NoiseTexture2D.new()
-	detail_texture.width = 256
-	detail_texture.height = 256
+	detail_texture.width = 512
+	detail_texture.height = 512
 	detail_texture.seamless = true
 	detail_texture.noise = detail_noise
 	var detail_ramp := Gradient.new()
