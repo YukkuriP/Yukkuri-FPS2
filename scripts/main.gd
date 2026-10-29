@@ -424,8 +424,13 @@ func _build_large_map() -> void:
 	detail_texture.height = 512
 	detail_texture.seamless = true
 	detail_texture.noise = detail_noise
+	var detail_ramp := Gradient.new()
+	detail_ramp.set_color(0, Color("#858780"))
+	detail_ramp.add_point(1.0, Color("#ffffff"))
+	detail_texture.color_ramp = detail_ramp
 	terrain_material.albedo_texture = detail_texture
 	terrain_material.roughness = 1.0
+	terrain_material.roughness_texture = detail_texture
 	terrain_mesh.surface_set_material(0, terrain_material)
 	var terrain_instance := MeshInstance3D.new()
 	terrain_instance.name = "1km_Terrain"
