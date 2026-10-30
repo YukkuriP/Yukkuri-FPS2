@@ -558,7 +558,7 @@ func _add_main_highway() -> void:
 		# Pale shoulder strips are individually sampled at their own lateral terrain height.
 		for z_index in range(0, 200, 2):
 			var z := -500.0 + float(z_index) * step
-			var shoulder_x := side * 10.0
+			var shoulder_x: float = float(side) * 10.0
 			var y := _terrain_height(shoulder_x, z) + 0.08
 			_add_ground_patch(Vector3(shoulder_x, y, z + 2.5), Vector3(2.0, 0.12, 5.0), Color("#777a78"))
 	# Raised reflective road studs, batched into one draw call per carriageway.
@@ -576,7 +576,7 @@ func _add_main_highway() -> void:
 		studs.instance_count = stud_count
 		for stud_index in range(stud_count):
 			var stud_z := -490.0 + float(stud_index) * 20.0
-			var stud_x := side * 7.85
+			var stud_x: float = float(side) * 7.85
 			var stud_y := _terrain_height(stud_x, stud_z) + 0.34
 			studs.set_instance_transform(stud_index, Transform3D(Basis.IDENTITY, Vector3(stud_x, stud_y, stud_z)))
 		var stud_instance := MultiMeshInstance3D.new()
