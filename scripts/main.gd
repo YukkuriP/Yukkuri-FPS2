@@ -478,8 +478,9 @@ func _build_large_map() -> void:
 
 	_add_base(Vector3(0, 0, 445), Color("#536c59"), "SOUTH / FRIENDLY")
 	_add_base(Vector3(0, 0, -445), Color("#75604d"), "NORTH / HOSTILE")
-	_add_tunnel_portal(Vector3(0, 27, 145), false)
-	_add_tunnel_portal(Vector3(0, 27, -145), true)
+	_add_tunnel_portal(Vector3(0, _terrain_height(0.0, 145.0) + 0.24, 145.0), false)
+	_add_tunnel_portal(Vector3(0, _terrain_height(0.0, -145.0) + 0.24, -145.0), true)
+	_add_tunnel_lining()
 	_add_underground_facility(Vector3(24, 12, 0))
 	_add_city_district(Vector3(-245, 0, 25), 7, 5, 19.0, Color("#777b78"))
 	_add_city_district(Vector3(-280, 0, -215), 5, 4, 24.0, Color("#8b8174"))
@@ -538,7 +539,7 @@ func _add_main_highway() -> void:
 	var road_visual := MeshInstance3D.new()
 	road_visual.name = "ContinuousHighwaySurface"
 	road_visual.mesh = road_mesh
-	road_visual.material_override = _make_material(Color("#34393a"), 0.92)
+	road_visual.material_override = _make_material(Color("#292e31"), 0.96)
 	world.add_child(road_visual)
 	var road_body := StaticBody3D.new()
 	road_body.name = "HighwayCollision"
@@ -550,13 +551,13 @@ func _add_main_highway() -> void:
 	for z_index in range(5, 200, 6):
 		var z := -500.0 + float(z_index) * step
 		var y := _terrain_height(0.0, z) + 0.29
-		_add_ground_patch(Vector3(0.0, y, z + 5.0), Vector3(0.16, 0.035, 4.0), Color("#e0d9bd"))
+		_add_ground_patch(Vector3(0.0, y, z + 5.0), Vector3(0.16, 0.035, 4.0), Color("#d7d4c8"))
 	# Pale shoulder strips sit just outside the asphalt without covering it.
 	for side in [-1.0, 1.0]:
 		for z_index in range(0, 200, 2):
 			var z := -500.0 + float(z_index) * step
 			var y := _terrain_height(0.0, z) + 0.12
-			_add_ground_patch(Vector3(side * 10.0, y, z + 2.5), Vector3(2.0, 0.12, 5.0), Color("#77776d"))
+			_add_ground_patch(Vector3(side * 10.0, y, z + 2.5), Vector3(2.0, 0.12, 5.0), Color("#777a78"))
 
 func _add_road(center: Vector3, size: Vector3, color: Color, visual_only: bool = false) -> void:
 	var mesh := BoxMesh.new()
@@ -717,17 +718,32 @@ func _add_base(center: Vector3, accent: Color, label_text: String) -> void:
 	world.add_child(sign)
 
 func _add_tunnel_portal(pos: Vector3, north_end: bool) -> void:
-	# Concrete portal frame and a dark tube. The terrain corridor is cut into the ridge around it.
-	for x in [-11.0, 11.0]:
-		world.add_child(_make_box(pos + Vector3(x, 5.5, 0), Vector3(2.0, 11.0, 2.2), Color("#656c6b")))
-	world.add_child(_make_box(pos + Vector3(0, 11.0, 0), Vector3(24.0, 2.0, 2.2), Color("#777d79")))
-	var tunnel_center_z := pos.z + (15.0 if north_end else -15.0)
-	# Open-sided tunnel lining: roof and side walls leave a clear drivable passage.
-	world.add_child(_make_box(Vector3(-8.8, 31.7, tunnel_center_z), Vector3(0.8, 9.0, 260.0), Color("#353d40")))
-	world.add_child(_make_box(Vector3(8.8, 31.7, tunnel_center_z), Vector3(0.8, 9.0, 260.0), Color("#353d40")))
-	world.add_child(_make_box(Vector3(0, 36.2, tunnel_center_z), Vector3(18.0, 0.8, 260.0), Color("#292f32")))
-	for offset in range(-120, 121, 20):
-		world.add_child(_make_box(Vector3(0, 35.7, tunnel_center_z + float(offset)), Vector3(18.0, 0.35, 0.35), Color("#4b5150")))
+	# Portal frame is anchored to the actual road surface at each entrance.
+	var road_y := pos.y
+	for x in [-10.0, 10.0]:
+		world.add_child(_make_box(pos + Vector3(x, 5.0, 0), Vector3(1.8, 10.0, 2.4), Color("#777b79")))
+	world.add_child(_make_box(pos + Vector3(0, 10.0, 0), Vector3(22.0, 1.8, 2.4), Color("#858783")))
+	# Dark recessed portal face makes the opening read clearly against the terrain.
+	world.add_child(_make_box(Vector3(0.0, road_y + 4.5, pos.z + (1.15 if north_end else -1.15)), Vector3(18.0, 8.6, 0.25), Color("#202629")))
+
+func _add_tunnel_lining() -> void:
+	# Build the tunnel in short sections, sampling the same height function as the road.
+	# This keeps walls, roof and lights attached to the changing grade instead of floating.
+	for z_index in range(58):
+		var z := -142.5 + float(z_index) * 5.0
+		var road_y := _terrain_height(0.0, z) + 0.24
+		var section_center := z + 2.5
+		var section_floor := _terrain_height(0.0, section_center) + 0.24
+		world.add_child(_make_box(Vector3(-9.0, section_floor + 4.25, section_center), Vector3(0.7, 8.5, 5.05), Color("#555d60")))
+		world.add_child(_make_box(Vector3(9.0, section_floor + 4.25, section_center), Vector3(0.7, 8.5, 5.05), Color("#555d60")))
+		world.add_child(_make_box(Vector3(0.0, section_floor + 8.65, section_center), Vector3(18.7, 0.45, 5.05), Color("#343b3e")))
+		# Repeating concrete ribs add depth without changing the tunnel clearance.
+		if z_index % 4 == 0:
+			for x in [-8.45, 8.45]:
+				world.add_child(_make_box(Vector3(x, section_floor + 4.25, section_center), Vector3(0.22, 8.5, 0.18), Color("#858984")))
+		# Low-intensity ceiling strips are evenly spaced along the tunnel.
+		if z_index % 6 == 0:
+			world.add_child(_make_box(Vector3(0.0, section_floor + 8.38, section_center), Vector3(2.2, 0.08, 0.65), Color("#c6c2a8")))
 
 func _add_underground_facility(pos: Vector3) -> void:
 	# Side entrance midway through the tunnel, with an illuminated descent into the bunker.
