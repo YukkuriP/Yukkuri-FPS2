@@ -826,7 +826,10 @@ func _add_farmland(origin: Vector3) -> void:
 func _add_forest(origin: Vector3, cols: int, rows: int, spacing: float) -> void:
 	# Use two MultiMesh batches per forest cluster: same silhouette and variation,
 	# substantially fewer draw calls and scene nodes for low-memory PCs.
-	var tree_count := cols * rows
+	# Slightly denser forest grid with two distinct canopy silhouettes.
+	var tree_cols := cols + 2
+	var tree_rows := rows + 2
+	var tree_count := tree_cols * tree_rows
 	var trunk_mesh := CylinderMesh.new()
 	trunk_mesh.top_radius = 0.5
 	trunk_mesh.bottom_radius = 0.8
@@ -851,20 +854,37 @@ func _add_forest(origin: Vector3, cols: int, rows: int, spacing: float) -> void:
 	crowns.use_colors = true
 	crowns.mesh = crown_mesh
 	crowns.instance_count = tree_count
+	var conifer_mesh := CylinderMesh.new()
+	conifer_mesh.top_radius = 0.04
+	conifer_mesh.bottom_radius = 1.0
+	conifer_mesh.height = 2.6
+	conifer_mesh.radial_segments = 8
+	var conifer_material := _make_material(Color.WHITE, 0.98)
+	conifer_material.vertex_color_use_as_albedo = true
+	var conifers := MultiMesh.new()
+	conifers.transform_format = MultiMesh.TRANSFORM_3D
+	conifers.use_colors = true
+	conifers.mesh = conifer_mesh
+	conifers.instance_count = tree_count
 	var instance_index := 0
-	for z_index in range(rows):
-		for x_index in range(cols):
-			var x := origin.x + (float(x_index) - float(cols - 1) * 0.5) * spacing
-			var z := origin.z + (float(z_index) - float(rows - 1) * 0.5) * spacing
+	for z_index in range(tree_rows):
+		for x_index in range(tree_cols):
+			var x := origin.x + (float(x_index) - float(tree_cols - 1) * 0.5) * spacing
+			var z := origin.z + (float(z_index) - float(tree_rows - 1) * 0.5) * spacing
 			var y := _terrain_height(x, z)
 			var trunk_height := 7.0 + float((x_index + z_index) % 4)
 			var trunk_transform := Transform3D(Basis.from_scale(Vector3(1.0, trunk_height / 10.0, 1.0)), Vector3(x, y + trunk_height * 0.5, z))
 			trunks.set_instance_transform(instance_index, trunk_transform)
 			trunks.set_instance_color(instance_index, Color("#4b3e30"))
 			var crown_radius := 4.2 + float((x_index * 3 + z_index) % 3)
-			var crown_transform := Transform3D(Basis.from_scale(Vector3.ONE * crown_radius), Vector3(x, y + 8.0 + crown_radius * 0.55, z))
+			var is_conifer := (x_index * 3 + z_index) % 3 == 0
+			var broadleaf_scale := crown_radius if not is_conifer else 0.001
+			var crown_transform := Transform3D(Basis.from_scale(Vector3.ONE * broadleaf_scale), Vector3(x, y + 8.0 + crown_radius * 0.55, z))
 			crowns.set_instance_transform(instance_index, crown_transform)
 			crowns.set_instance_color(instance_index, Color("#344b35").darkened(float((x_index + z_index) % 4) * 0.08))
+			var conifer_transform := Transform3D(Basis.from_scale(Vector3(crown_radius, crown_radius * 0.92, crown_radius)), Vector3(x, y + trunk_height * 0.55, z))
+			conifers.set_instance_transform(instance_index, conifer_transform if is_conifer else Transform3D(Basis.from_scale(Vector3.ONE * 0.001), Vector3(x, y, z)))
+			conifers.set_instance_color(instance_index, Color("#263f30").darkened(float((x_index + z_index) % 3) * 0.07))
 			instance_index += 1
 	var trunk_instance := MultiMeshInstance3D.new()
 	trunk_instance.name = "ForestTrunks"
@@ -876,6 +896,11 @@ func _add_forest(origin: Vector3, cols: int, rows: int, spacing: float) -> void:
 	crown_instance.multimesh = crowns
 	crown_instance.material_override = crown_material
 	world.add_child(crown_instance)
+	var conifer_instance := MultiMeshInstance3D.new()
+	conifer_instance.name = "ForestConiferCanopies"
+	conifer_instance.multimesh = conifers
+	conifer_instance.material_override = conifer_material
+	world.add_child(conifer_instance)
 
 	# Forest floor detail: a single batched MultiMesh for grass blades and another
 	# for low shrubs. All instances sample the same terrain function as the trees.
