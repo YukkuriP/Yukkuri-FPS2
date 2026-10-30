@@ -297,13 +297,22 @@ func _build_training_world() -> void:
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_BG
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.08
+	# Contact shading adds depth to building corners and terrain details.
+	env.ssao_enabled = true
+	env.ssao_radius = 1.8
+	env.ssao_intensity = 1.15
+	env.ssao_power = 1.25
+	env.ssao_detail = 0.5
+	env.ssao_horizon = 0.08
+	env.ssao_direct_light_affect = 0.12
 	env.glow_enabled = true
 	env.glow_intensity = 0.45
 	env.glow_strength = 0.8
 	env.glow_bloom = 0.08
 	env.fog_enabled = true
 	env.fog_light_color = Color("#a6b0b0")
-	env.fog_density = 0.006
+# Keep distant terrain legible while retaining atmospheric depth.
+	env.fog_density = 0.0045
 	env.fog_sky_affect = 0.35
 	environment_node.environment = env
 	world.add_child(environment_node)
