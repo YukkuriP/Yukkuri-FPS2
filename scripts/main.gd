@@ -552,12 +552,63 @@ func _add_main_highway() -> void:
 		var z := -500.0 + float(z_index) * step
 		var y := _terrain_height(0.0, z) + 0.29
 		_add_ground_patch(Vector3(0.0, y, z + 5.0), Vector3(0.16, 0.035, 4.0), Color("#d7d4c8"))
-	# Pale shoulder strips sit just outside the asphalt without covering it.
+	# Continuous white edge lines follow the terrain profile on both sides.
 	for side in [-1.0, 1.0]:
+		_add_highway_ribbon(side * 8.35, 0.14, Color("#d8d7ca"), 0.31)
+		# Pale shoulder strips are individually sampled at their own lateral terrain height.
 		for z_index in range(0, 200, 2):
 			var z := -500.0 + float(z_index) * step
-			var y := _terrain_height(0.0, z) + 0.12
-			_add_ground_patch(Vector3(side * 10.0, y, z + 2.5), Vector3(2.0, 0.12, 5.0), Color("#777a78"))
+			var shoulder_x := side * 10.0
+			var y := _terrain_height(shoulder_x, z) + 0.08
+			_add_ground_patch(Vector3(shoulder_x, y, z + 2.5), Vector3(2.0, 0.12, 5.0), Color("#777a78"))
+	# Raised reflective road studs, batched into one draw call per carriageway.
+	var stud_mesh := SphereMesh.new()
+	stud_mesh.radius = 0.075
+	stud_mesh.height = 0.045
+	stud_mesh.radial_segments = 6
+	stud_mesh.rings = 3
+	var stud_material := _make_material(Color("#d6d0a8"), 0.32, 0.15)
+	for side in [-1.0, 1.0]:
+		var studs := MultiMesh.new()
+		studs.transform_format = MultiMesh.TRANSFORM_3D
+		studs.mesh = stud_mesh
+		var stud_count := 50
+		studs.instance_count = stud_count
+		for stud_index in range(stud_count):
+			var stud_z := -490.0 + float(stud_index) * 20.0
+			var stud_x := side * 7.85
+			var stud_y := _terrain_height(stud_x, stud_z) + 0.34
+			studs.set_instance_transform(stud_index, Transform3D(Basis.IDENTITY, Vector3(stud_x, stud_y, stud_z)))
+		var stud_instance := MultiMeshInstance3D.new()
+		stud_instance.name = "HighwayReflectiveStuds"
+		stud_instance.multimesh = studs
+		stud_instance.material_override = stud_material
+		world.add_child(stud_instance)
+
+func _add_highway_ribbon(x: float, width: float, color: Color, lift: float) -> void:
+	var vertices := PackedVector3Array()
+	var indices := PackedInt32Array()
+	var step := 2.5
+	var samples := 401
+	for i in range(samples):
+		var z := -500.0 + float(i) * step
+		var y := _terrain_height(x, z) + lift
+		vertices.append(Vector3(x - width * 0.5, y, z))
+		vertices.append(Vector3(x + width * 0.5, y, z))
+		if i < samples - 1:
+			var a := i * 2
+			indices.append_array(PackedInt32Array([a, a + 2, a + 1, a + 1, a + 2, a + 3]))
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var ribbon_mesh := ArrayMesh.new()
+	ribbon_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var ribbon := MeshInstance3D.new()
+	ribbon.name = "HighwayEdgeLine"
+	ribbon.mesh = ribbon_mesh
+	ribbon.material_override = _make_material(color, 0.72)
+	world.add_child(ribbon)
 
 func _add_road(center: Vector3, size: Vector3, color: Color, visual_only: bool = false) -> void:
 	var mesh := BoxMesh.new()
