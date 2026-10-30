@@ -723,15 +723,13 @@ func _add_tunnel_portal(pos: Vector3, north_end: bool) -> void:
 	for x in [-10.0, 10.0]:
 		world.add_child(_make_box(pos + Vector3(x, 5.0, 0), Vector3(1.8, 10.0, 2.4), Color("#777b79")))
 	world.add_child(_make_box(pos + Vector3(0, 10.0, 0), Vector3(22.0, 1.8, 2.4), Color("#858783")))
-	# Dark recessed portal face makes the opening read clearly against the terrain.
-	world.add_child(_make_box(Vector3(0.0, road_y + 4.5, pos.z + (1.15 if north_end else -1.15)), Vector3(18.0, 8.6, 0.25), Color("#202629")))
+	# Keep the centre fully open so the player can enter the tunnel.
 
 func _add_tunnel_lining() -> void:
 	# Build the tunnel in short sections, sampling the same height function as the road.
 	# This keeps walls, roof and lights attached to the changing grade instead of floating.
 	for z_index in range(58):
 		var z := -142.5 + float(z_index) * 5.0
-		var road_y := _terrain_height(0.0, z) + 0.24
 		var section_center := z + 2.5
 		var section_floor := _terrain_height(0.0, section_center) + 0.24
 		world.add_child(_make_box(Vector3(-9.0, section_floor + 4.25, section_center), Vector3(0.7, 8.5, 5.05), Color("#555d60")))
