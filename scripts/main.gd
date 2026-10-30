@@ -877,6 +877,69 @@ func _add_forest(origin: Vector3, cols: int, rows: int, spacing: float) -> void:
 	crown_instance.material_override = crown_material
 	world.add_child(crown_instance)
 
+	# Forest floor detail: a single batched MultiMesh for grass blades and another
+	# for low shrubs. All instances sample the same terrain function as the trees.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(absf(origin.x * 73856093.0 + origin.z * 19349663.0)) + 1
+	var grass_mesh := CylinderMesh.new()
+	grass_mesh.top_radius = 0.012
+	grass_mesh.bottom_radius = 0.075
+	grass_mesh.height = 0.62
+	grass_mesh.radial_segments = 4
+	var grass_material := _make_material(Color.WHITE, 1.0)
+	grass_material.vertex_color_use_as_albedo = true
+	var grass_batch := MultiMesh.new()
+	grass_batch.transform_format = MultiMesh.TRANSFORM_3D
+	grass_batch.use_colors = true
+	grass_batch.mesh = grass_mesh
+	var grass_count := 1100
+	grass_batch.instance_count = grass_count
+	for grass_index in range(grass_count):
+		var gx := origin.x + rng.randf_range(-float(cols) * spacing * 0.58, float(cols) * spacing * 0.58)
+		var gz := origin.z + rng.randf_range(-float(rows) * spacing * 0.58, float(rows) * spacing * 0.58)
+		var gy := _terrain_height(gx, gz)
+		var blade_height := rng.randf_range(0.55, 1.2)
+		var blade_width := rng.randf_range(0.65, 1.35)
+		var blade_basis := Basis(Vector3.UP, rng.randf_range(0.0, TAU)).scaled(Vector3(blade_width, blade_height, blade_width))
+		grass_batch.set_instance_transform(grass_index, Transform3D(blade_basis, Vector3(gx, gy + blade_height * 0.28, gz)))
+		var green := rng.randf_range(0.72, 1.12)
+		grass_batch.set_instance_color(grass_index, Color(0.36 * green, 0.48 * green, 0.25 * green))
+	var grass_instance := MultiMeshInstance3D.new()
+	grass_instance.name = "ForestFloorGrass"
+	grass_instance.multimesh = grass_batch
+	grass_instance.material_override = grass_material
+	world.add_child(grass_instance)
+
+	# Small, subdued shrubs break up the repeated tree spacing without creating
+	# hundreds of individual scene nodes.
+	var shrub_mesh := SphereMesh.new()
+	shrub_mesh.radius = 0.7
+	shrub_mesh.height = 1.0
+	shrub_mesh.radial_segments = 7
+	shrub_mesh.rings = 4
+	var shrub_material := _make_material(Color.WHITE, 1.0)
+	shrub_material.vertex_color_use_as_albedo = true
+	var shrub_batch := MultiMesh.new()
+	shrub_batch.transform_format = MultiMesh.TRANSFORM_3D
+	shrub_batch.use_colors = true
+	shrub_batch.mesh = shrub_mesh
+	var shrub_count := 65
+	shrub_batch.instance_count = shrub_count
+	for shrub_index in range(shrub_count):
+		var sx := origin.x + rng.randf_range(-float(cols) * spacing * 0.52, float(cols) * spacing * 0.52)
+		var sz := origin.z + rng.randf_range(-float(rows) * spacing * 0.52, float(rows) * spacing * 0.52)
+		var sy := _terrain_height(sx, sz)
+		var shrub_scale := rng.randf_range(0.8, 1.65)
+		var shrub_basis := Basis(Vector3.UP, rng.randf_range(0.0, TAU)).scaled(Vector3(shrub_scale * 1.3, shrub_scale, shrub_scale * 1.15))
+		shrub_batch.set_instance_transform(shrub_index, Transform3D(shrub_basis, Vector3(sx, sy + shrub_scale * 0.38, sz)))
+		var shrub_green := rng.randf_range(0.78, 1.08)
+		shrub_batch.set_instance_color(shrub_index, Color(0.20 * shrub_green, 0.34 * shrub_green, 0.18 * shrub_green))
+	var shrub_instance := MultiMeshInstance3D.new()
+	shrub_instance.name = "ForestUnderstory"
+	shrub_instance.multimesh = shrub_batch
+	shrub_instance.material_override = shrub_material
+	world.add_child(shrub_instance)
+
 func _add_rural_compound(origin: Vector3) -> void:
 	var y := _terrain_height(origin.x, origin.z)
 	for x_offset in [-12.0, 12.0]:
