@@ -472,20 +472,12 @@ func _build_large_map() -> void:
 	ground_body.add_child(ground_shape)
 	world.add_child(ground_body)
 
-	# Highway and rural access road surfaces.
-	for z in range(-495, 500, 10):
-		var road_y := _terrain_height(0.0, float(z))
-		_add_road(Vector3(0, road_y + 0.28, float(z)), Vector3(18, 0.35, 10.2), Color("#34393a"))
-		_add_road(Vector3(0, road_y + 0.48, float(z)), Vector3(30, 0.08, 10.2), Color("#77776d"), true)
-		_add_road(Vector3(0, road_y + 0.54, float(z)), Vector3(0.35, 0.06, 10.2), Color("#d2c9a3"), true)
+	# One continuous terrain-following highway mesh. The previous stack of overlapping
+	# 10 m boxes plus a second raised slab created visible seams and two competing road heights.
+	_add_main_highway()
 
 	_add_base(Vector3(0, 0, 445), Color("#536c59"), "SOUTH / FRIENDLY")
 	_add_base(Vector3(0, 0, -445), Color("#75604d"), "NORTH / HOSTILE")
-	_add_road(Vector3(0, 28, 155), Vector3(22, 0.8, 250), Color("#3b4041"))
-	for side in [-1.0, 1.0]:
-		for z in range(55, 276, 35):
-			var support := _make_box(Vector3(side * 9.0, 12.0, float(z)), Vector3(1.3, 24.0, 1.3), Color("#656b69"))
-			world.add_child(support)
 	_add_tunnel_portal(Vector3(0, 27, 145), false)
 	_add_tunnel_portal(Vector3(0, 27, -145), true)
 	_add_underground_facility(Vector3(24, 12, 0))
@@ -516,6 +508,55 @@ func _add_ground_patch(center: Vector3, size: Vector3, color: Color) -> void:
 	visual.position = Vector3(center.x, center.y, center.z)
 	visual.material_override = _make_material(color, 0.98)
 	world.add_child(visual)
+
+func _add_main_highway() -> void:
+	# A single indexed surface follows the actual terrain, avoiding gaps, overlaps and
+	# abrupt height changes between independently placed road boxes.
+	var vertices := PackedVector3Array()
+	var indices := PackedInt32Array()
+	var uvs := PackedVector2Array()
+	var step := 5.0
+	var half_width := 9.0
+	var samples := 201
+	for i in range(samples):
+		var z := -500.0 + float(i) * step
+		var y := _terrain_height(0.0, z) + 0.24
+		vertices.append(Vector3(-half_width, y, z))
+		vertices.append(Vector3(half_width, y, z))
+		uvs.append(Vector2(0.0, float(i) * 0.5))
+		uvs.append(Vector2(1.0, float(i) * 0.5))
+		if i < samples - 1:
+			var a := i * 2
+			indices.append_array(PackedInt32Array([a, a + 2, a + 1, a + 1, a + 2, a + 3]))
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_INDEX] = indices
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	var road_mesh := ArrayMesh.new()
+	road_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var road_visual := MeshInstance3D.new()
+	road_visual.name = "ContinuousHighwaySurface"
+	road_visual.mesh = road_mesh
+	road_visual.material_override = _make_material(Color("#34393a"), 0.92)
+	world.add_child(road_visual)
+	var road_body := StaticBody3D.new()
+	road_body.name = "HighwayCollision"
+	var road_collision := CollisionShape3D.new()
+	road_collision.shape = road_mesh.create_trimesh_shape()
+	road_body.add_child(road_collision)
+	world.add_child(road_body)
+	# Dashed centre divider, aligned to the same sampled terrain profile.
+	for z_index in range(5, 200, 6):
+		var z := -500.0 + float(z_index) * step
+		var y := _terrain_height(0.0, z) + 0.29
+		_add_ground_patch(Vector3(0.0, y, z + 5.0), Vector3(0.16, 0.035, 4.0), Color("#e0d9bd"))
+	# Pale shoulder strips sit just outside the asphalt without covering it.
+	for side in [-1.0, 1.0]:
+		for z_index in range(0, 200, 2):
+			var z := -500.0 + float(z_index) * step
+			var y := _terrain_height(0.0, z) + 0.12
+			_add_ground_patch(Vector3(side * 10.0, y, z + 2.5), Vector3(2.0, 0.12, 5.0), Color("#77776d"))
 
 func _add_road(center: Vector3, size: Vector3, color: Color, visual_only: bool = false) -> void:
 	var mesh := BoxMesh.new()
