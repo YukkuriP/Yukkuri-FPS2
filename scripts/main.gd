@@ -808,24 +808,58 @@ func _add_underground_facility(pos: Vector3) -> void:
 	_add_road(pos + Vector3(0, -0.6, 0), Vector3(10, 0.25, 22), Color("#3d4648"))
 
 func _add_city_district(origin: Vector3, cols: int, rows: int, spacing: float, base_color: Color) -> void:
+	var glass_material := _make_material(Color("#263a43"), 0.28, 0.22)
+	var trim_material := _make_material(Color("#b0aaa0"), 0.82, 0.12)
 	for z_index in range(rows):
 		for x_index in range(cols):
 			var x := origin.x + (float(x_index) - float(cols - 1) * 0.5) * spacing
 			var z := origin.z + (float(z_index) - float(rows - 1) * 0.5) * spacing
+			var ground_y: float = _terrain_height(x, z)
 			var h := 12.0 + float((x_index * 7 + z_index * 11) % 6) * 5.0
 			var w := 12.0 + float((x_index + z_index) % 3) * 2.0
+			var depth: float = w * (0.82 if (x_index + z_index) % 2 == 0 else 1.0)
 			var color := base_color.darkened(float((x_index + z_index) % 4) * 0.045)
-			var building := _make_box(Vector3(x, _terrain_height(x, z) + h * 0.5, z), Vector3(w, h, w), color, 0.9)
+			var building := _make_box(Vector3(x, ground_y + h * 0.5, z), Vector3(w, h, depth), color, 0.9)
 			world.add_child(building)
-			# Recessed dark window bands on the street-facing facade.
-			for floor_index in range(1, int(h / 4.0)):
-				var windows := MeshInstance3D.new()
-				var mesh := BoxMesh.new()
-				mesh.size = Vector3(w * 0.72, 0.65, 0.08)
-				windows.mesh = mesh
-				windows.position = Vector3(x, _terrain_height(x, z) + float(floor_index) * 3.7, z - w * 0.5 - 0.05)
-				windows.material_override = _make_material(Color("#303c43"), 0.52, 0.08)
-				world.add_child(windows)
+			# Four-sided window grids with separate frames, not a single flat window strip.
+			var floor_count: int = int(h / 4.0)
+			for floor_index in range(1, floor_count):
+				var window_y: float = ground_y + float(floor_index) * 3.7
+				for window_index in range(3):
+					var wx: float = x + (float(window_index) - 1.0) * w * 0.27
+					var front_mesh := BoxMesh.new()
+					front_mesh.size = Vector3(w * 0.19, 1.25, 0.12)
+					_add_visual(world, front_mesh, Vector3(wx, window_y, z - depth * 0.5 - 0.07), Color("#263a43"), 0.3, 0.2)
+					var rear_mesh := BoxMesh.new()
+					rear_mesh.size = Vector3(w * 0.19, 1.25, 0.12)
+					_add_visual(world, rear_mesh, Vector3(wx, window_y, z + depth * 0.5 + 0.07), Color("#263a43"), 0.3, 0.2)
+					var side_mesh := BoxMesh.new()
+					side_mesh.size = Vector3(0.12, 1.25, depth * 0.19)
+					_add_visual(world, side_mesh, Vector3(x - w * 0.5 - 0.07, window_y, z + (float(window_index) - 1.0) * depth * 0.27), Color("#263a43"), 0.3, 0.2)
+					var other_side_mesh := BoxMesh.new()
+					other_side_mesh.size = Vector3(0.12, 1.25, depth * 0.19)
+					_add_visual(world, other_side_mesh, Vector3(x + w * 0.5 + 0.07, window_y, z + (float(window_index) - 1.0) * depth * 0.27), Color("#263a43"), 0.3, 0.2)
+			# Roof parapet and rooftop plant equipment give each block a finished silhouette.
+			for edge_x in [-1.0, 1.0]:
+				var parapet_x: float = x + float(edge_x) * (w * 0.5 - 0.12)
+				var parapet := BoxMesh.new()
+				parapet.size = Vector3(0.24, 0.85, depth)
+				_add_visual(world, parapet, Vector3(parapet_x, ground_y + h + 0.42, z), color.lightened(0.12), 0.88)
+			for edge_z in [-1.0, 1.0]:
+				var parapet_z: float = z + float(edge_z) * (depth * 0.5 - 0.12)
+				var parapet := BoxMesh.new()
+				parapet.size = Vector3(w, 0.85, 0.24)
+				_add_visual(world, parapet, Vector3(x, ground_y + h + 0.42, parapet_z), color.lightened(0.12), 0.88)
+			var hvac := BoxMesh.new()
+			hvac.size = Vector3(2.2, 1.0, 1.6)
+			_add_visual(world, hvac, Vector3(x + w * 0.18, ground_y + h + 0.55, z), Color("#555e60"), 0.72, 0.18)
+			# Ground-floor shopfront / recessed entrance.
+			var entrance := BoxMesh.new()
+			entrance.size = Vector3(2.1, 2.8, 0.16)
+			_add_visual(world, entrance, Vector3(x, ground_y + 1.55, z - depth * 0.5 - 0.1), Color("#17262d"), 0.38, 0.12)
+			var sign := BoxMesh.new()
+			sign.size = Vector3(w * 0.62, 0.42, 0.2)
+			_add_visual(world, sign, Vector3(x, ground_y + 3.35, z - depth * 0.5 - 0.12), Color("#9b9b87"), 0.55, 0.08)
 
 func _add_factory(origin: Vector3) -> void:
 	for i in range(5):
