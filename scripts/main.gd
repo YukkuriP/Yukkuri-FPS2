@@ -865,12 +865,33 @@ func _add_factory(origin: Vector3) -> void:
 	for i in range(5):
 		var x := origin.x - 38.0 + float(i) * 19.0
 		var z := origin.z + float(i % 2) * 23.0
-		var y := _terrain_height(x, z)
+		var y: float = _terrain_height(x, z)
 		world.add_child(_make_box(Vector3(x, y + 7.0, z), Vector3(15, 14, 24), Color("#77766b")))
 		world.add_child(_make_box(Vector3(x, y + 14.4, z), Vector3(16, 0.8, 25), Color("#434b4d")))
+		# Repeating saw-tooth roof glazing, loading shutters and concrete dock aprons.
+		for roof_index in range(3):
+			var roof_x: float = x - 4.5 + float(roof_index) * 4.5
+			var skylight := BoxMesh.new()
+			skylight.size = Vector3(2.6, 0.18, 15.0)
+			_add_visual(world, skylight, Vector3(roof_x, y + 14.92, z), Color("#53666a"), 0.3, 0.28)
+		var shutter := BoxMesh.new()
+		shutter.size = Vector3(5.0, 5.4, 0.18)
+		_add_visual(world, shutter, Vector3(x, y + 3.1, z - 12.15), Color("#303b3d"), 0.75, 0.18)
+		for rib in range(7):
+			var rib_mesh := BoxMesh.new()
+			rib_mesh.size = Vector3(4.8, 0.12, 0.12)
+			_add_visual(world, rib_mesh, Vector3(x, y + 0.9 + float(rib) * 0.72, z - 12.28), Color("#77817e"), 0.78, 0.12)
+		world.add_child(_make_box(Vector3(x, y + 0.18, z - 15.5), Vector3(12, 0.35, 6), Color("#77766b")))
+		for side in [-1.0, 1.0]:
+			var pipe := CylinderMesh.new()
+			pipe.top_radius = 0.22
+			pipe.bottom_radius = 0.22
+			pipe.height = 13.0
+			var pipe_instance := _add_visual(world, pipe, Vector3(x + float(side) * 7.2, y + 6.8, z + 8.0), Color("#555e5d"), 0.48, 0.42)
+			pipe_instance.rotation = Vector3(0, 0, 0)
 	for i in range(4):
 		var x := origin.x + 48.0 + float(i) * 11.0
-		var y := _terrain_height(x, origin.z)
+		var y: float = _terrain_height(x, origin.z)
 		var tank := CylinderMesh.new()
 		tank.top_radius = 5.0
 		tank.bottom_radius = 5.0
@@ -881,6 +902,12 @@ func _add_factory(origin: Vector3) -> void:
 		instance.material_override = _make_material(Color("#8b8d83"), 0.5, 0.25)
 		world.add_child(instance)
 		world.add_child(_make_box(Vector3(x, y + 16.0, origin.z), Vector3(1.0, 2.0, 1.0), Color("#454b4b")))
+		var catwalk := TorusMesh.new()
+		catwalk.inner_radius = 4.9
+		catwalk.outer_radius = 5.12
+		catwalk.rings = 6
+		catwalk.ring_segments = 24
+		_add_visual(world, catwalk, Vector3(x, y + 9.5, origin.z), Color("#59635f"), 0.65, 0.35)
 
 func _add_airport(origin: Vector3) -> void:
 	var y := _terrain_height(origin.x, origin.z)
