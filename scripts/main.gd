@@ -910,18 +910,52 @@ func _add_factory(origin: Vector3) -> void:
 		_add_visual(world, catwalk, Vector3(x, y + 9.5, origin.z), Color("#59635f"), 0.65, 0.35)
 
 func _add_airport(origin: Vector3) -> void:
-	var y := _terrain_height(origin.x, origin.z)
+	var y: float = _terrain_height(origin.x, origin.z)
 	_add_ground_patch(Vector3(origin.x, y + 0.15, origin.z), Vector3(190, 0.3, 330), Color("#484e4d"))
 	_add_road(Vector3(origin.x, y + 0.32, origin.z), Vector3(24, 0.12, 285), Color("#282e31"), true)
-	for z_offset in [-132.0, 132.0]:
-		for x_offset in [-10.0, 10.0]:
-			_add_ground_patch(Vector3(origin.x + x_offset, y + 0.4, origin.z + z_offset), Vector3(0.45, 0.08, 4), Color("#dedbc6"))
+	# Runway centerline, edge guidance and threshold piano markings.
+	for mark_index in range(22):
+		var mark_z: float = origin.z - 118.0 + float(mark_index) * 11.0
+		_add_ground_patch(Vector3(origin.x, y + 0.43, mark_z), Vector3(0.42, 0.06, 5.2), Color("#dedbc6"))
+	for side in [-1.0, 1.0]:
+		_add_ground_patch(Vector3(origin.x + float(side) * 11.1, y + 0.42, origin.z), Vector3(0.28, 0.05, 270), Color("#d7d4c8"))
+		for threshold_index in range(8):
+			var threshold_z: float = origin.z - 132.0 + float(threshold_index) * 3.0
+			_add_ground_patch(Vector3(origin.x + float(side) * (3.0 + float(threshold_index) * 1.05), y + 0.44, threshold_z), Vector3(0.65, 0.06, 9.0), Color("#e2dfd2"))
+	# Taxi apron and terminal-side stand guidance.
+	_add_ground_patch(Vector3(origin.x + 43.0, y + 0.34, origin.z - 64.0), Vector3(72, 0.18, 94), Color("#555b59"))
+	for stand_index in range(3):
+		var stand_x: float = origin.x + 18.0 + float(stand_index) * 25.0
+		_add_ground_patch(Vector3(stand_x, y + 0.47, origin.z - 92.0), Vector3(0.18, 0.05, 34), Color("#d6c99b"))
+		_add_ground_patch(Vector3(stand_x + 7.0, y + 0.47, origin.z - 108.0), Vector3(14, 0.05, 0.18), Color("#d6c99b"))
+	# Three connected terminal / hangar modules with glass curtain walls and roof plant.
 	for i in range(3):
-		var x := origin.x + 42.0 + float(i) * 28.0
-		world.add_child(_make_box(Vector3(x, y + 7.0, origin.z - 75.0), Vector3(22, 14, 34), Color("#777e7c")))
-		world.add_child(_make_box(Vector3(x, y + 14.2, origin.z - 75.0), Vector3(23, 0.6, 35), Color("#42494b")))
+		var x: float = origin.x + 42.0 + float(i) * 28.0
+		var terminal_z: float = origin.z - 75.0
+		world.add_child(_make_box(Vector3(x, y + 7.0, terminal_z), Vector3(22, 14, 34), Color("#777e7c")))
+		world.add_child(_make_box(Vector3(x, y + 14.2, terminal_z), Vector3(23, 0.6, 35), Color("#42494b")))
+		var glass := BoxMesh.new()
+		glass.size = Vector3(18.0, 5.4, 0.22)
+		_add_visual(world, glass, Vector3(x, y + 8.1, terminal_z - 17.2), Color("#263f49"), 0.24, 0.3)
+		for mullion_index in range(7):
+			var mullion := BoxMesh.new()
+			mullion.size = Vector3(0.12, 5.6, 0.28)
+			_add_visual(world, mullion, Vector3(x - 8.0 + float(mullion_index) * 2.66, y + 8.1, terminal_z - 17.38), Color("#9da9a5"), 0.45, 0.42)
+		var canopy := BoxMesh.new()
+		canopy.size = Vector3(20.0, 0.42, 4.0)
+		_add_visual(world, canopy, Vector3(x, y + 4.9, terminal_z - 19.0), Color("#9b9d95"), 0.68, 0.18)
+		var roof_unit := BoxMesh.new()
+		roof_unit.size = Vector3(4.0, 1.4, 3.0)
+		_add_visual(world, roof_unit, Vector3(x + 5.0, y + 15.2, terminal_z + 4.0), Color("#596365"), 0.7, 0.16)
+	# Air traffic control tower with glazed cab and roof beacon.
+	world.add_child(_make_box(Vector3(origin.x + 87.0, y + 8.0, origin.z - 43.0), Vector3(7.0, 16.0, 7.0), Color("#727a78")))
+	world.add_child(_make_box(Vector3(origin.x + 87.0, y + 17.0, origin.z - 43.0), Vector3(12.0, 3.2, 12.0), Color("#34464c")))
+	var cab_glass := BoxMesh.new()
+	cab_glass.size = Vector3(10.5, 2.1, 10.5)
+	_add_visual(world, cab_glass, Vector3(origin.x + 87.0, y + 17.0, origin.z - 43.0), Color("#31515b"), 0.2, 0.35)
+	world.add_child(_make_box(Vector3(origin.x + 87.0, y + 19.0, origin.z - 43.0), Vector3(13.0, 0.35, 13.0), Color("#454d4d")))
 	for i in range(5):
-		var x := origin.x - 72.0 + float(i) * 28.0
+		var x: float = origin.x - 72.0 + float(i) * 28.0
 		_add_ground_patch(Vector3(x, y + 0.35, origin.z + 95.0), Vector3(0.4, 0.08, 18), Color("#e0d7a8"))
 
 func _add_farmland(origin: Vector3) -> void:
