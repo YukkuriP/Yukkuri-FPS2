@@ -5,6 +5,7 @@ const $ = id => document.getElementById(id);
 const intro = $("intro"), lobby = $("lobby"), game = $("game"), statusEl = $("status");
 let socket = null, renderer, scene, camera, me, yaw = 0, pitch = 0, last = performance.now();
 let peers = new Map(), move = {forward:false,back:false,left:false,right:false};
+let viewModel = null, bobPhase = 0, previousCameraPosition = new THREE.Vector3();
 const characterLoader = new GLTFLoader();
 const characterModelUrl = "./assets/characters/operator.glb";
 const characterMixers = new Set();
@@ -166,8 +167,10 @@ function initScene(){
   addBox(x,4,-8,.18,.18,.18,0xffc76a);
   const lamp=new THREE.PointLight(0xffbd69,7,8);lamp.position.set(x,3.8,-8);scene.add(lamp);
  }
- me=new THREE.Mesh(new THREE.CapsuleGeometry(.35,.9,4,8),mat(0x8db9d9));
- me.position.set(0,.8,15);scene.add(me);
+ me=null;
+ viewModel=createFirstPersonViewModel();
+ camera.add(viewModel);
+ previousCameraPosition.copy(camera.position);
  spawnTrainingBots();
  const points=[new THREE.Vector3(-12,0,-9),new THREE.Vector3(12,0,-7),new THREE.Vector3(0,0,8)];
  objectives=points.map(p=>{
@@ -256,6 +259,50 @@ function loadExternalCharacter(soldier){
   soldier.modelLoaded=true;
  },undefined,()=>{/* Keep the procedural character if no local model is installed. */});
 }
+
+function createFirstPersonViewModel(){
+ const root=new THREE.Group();
+ root.position.set(.34,-.31,-.58);
+ const mat=(color,roughness=.82,metalness=.08)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
+ const cloth=mat(0x414b43,.96), clothEdge=mat(0x596254,.94), glove=mat(0x252c2a,.92), glovePad=mat(0x424b45,.9);
+ const polymer=mat(0x202729,.72), metal=mat(0x3a4243,.48,.42), dark=mat(0x111719,.56,.38), rail=mat(0x596164,.62,.35);
+ const add=(geo,material,pos,rot,parent=root)=>{const m=new THREE.Mesh(geo,material);m.position.set(...pos);if(rot)m.rotation.set(...rot);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;};
+ const box=(pos,size,material,rot=[0,0,0])=>add(new THREE.BoxGeometry(...size),material,pos,rot);
+ const cyl=(pos,r,h,material,rot=[Math.PI/2,0,0])=>add(new THREE.CylinderGeometry(r,r,h,12),material,pos,rot);
+ // Sleeves, articulated-looking cuffs, gloves and individual fingers.
+ const arm=(side)=>{
+  const g=new THREE.Group();g.position.set(side<0?-.27:.28,side<0?-.12:-.17,side<0?-.23:.08);g.rotation.z=side<0?-.38:.22;root.add(g);
+  add(new THREE.CapsuleGeometry(.082,.43,5,9),cloth,[0,0,.02],[.86,0,side<0?-.12:.08],g);
+  add(new THREE.CylinderGeometry(.087,.083,.075,10),clothEdge,[0,-.01,-.20],[Math.PI/2,0,0],g);
+  add(new THREE.BoxGeometry(.16,.105,.13),glove,[0,-.04,-.28],[.1,0,0],g);
+  for(let i=0;i<4;i++)add(new THREE.CapsuleGeometry(.018,.075,3,6),glove,[((i-1.5)*.032),-.085,-.33],[.25,0,0],g);
+  add(new THREE.CapsuleGeometry(.018,.06,3,6),glove,[side<0?.085:-.085,-.015,-.31],[0,0,side<0?-.55:.55],g);
+  add(new THREE.BoxGeometry(.105,.018,.075),glovePad,[0,.016,-.28],null,g);
+ };
+ arm(-1);arm(1);
+ // Compact modern carbine silhouette with receiver, handguard, rail, barrel, optic, grip and magazine.
+ box([.13,-.015,-.29],[.16,.13,.39],polymer);
+ box([.13,.055,-.32],[.13,.035,.42],dark);
+ box([.13,-.075,-.24],[.13,.09,.23],polymer);
+ box([.13,-.005,-.59],[.13,.105,.34],polymer);
+ box([.045,-.005,-.59],[.018,.055,.30],rail);box([.215,-.005,-.59],[.018,.055,.30],rail);
+ for(let i=0;i<6;i++){const z=-.46-i*.045;box([.028,-.005,z],[.012,.018,.024],dark);box([.232,-.005,z],[.012,.018,.024],dark);}
+ cyl([.13,.002,-.86],.022,.42,dark);
+ cyl([.13,.002,-1.08],.031,.09,metal);
+ cyl([.13,.002,-1.135],.025,.025,dark);
+ box([.13,.115,-.34],[.085,.025,.14],dark);
+ cyl([.13,.16,-.34],.039,.13,dark);
+ cyl([.13,.16,-.415],.027,.008,mat(0x49676b,.24,.25));
+ box([.13,-.17,-.18],[.095,.20,.11],polymer,[-.22,0,0]);
+ box([.13,-.28,-.20],[.10,.12,.12],dark,[-.12,0,0]);
+ box([.13,-.005,-.015],[.13,.095,.24],polymer);
+ box([.13,-.005,.105],[.14,.12,.035],glove);
+ // Subtle handguard fasteners and sling mount.
+ for(const side of [-1,1])for(let i=0;i<4;i++)cyl([.13+side*.071,-.005,-.48-i*.07],.008,.012,metal,[0,0,Math.PI/2]);
+ root.userData.basePosition=root.position.clone();
+ return root;
+}
+
 function createGroundTexture(){
  const canvas=document.createElement("canvas");canvas.width=canvas.height=256;
  const ctx=canvas.getContext("2d");ctx.fillStyle="#66727a";ctx.fillRect(0,0,256,256);
@@ -284,26 +331,20 @@ function addEnvironmentDetails(){
 function spawnTrainingBots(){
  trainingBots=[];
  const spots=[new THREE.Vector3(-7,0,-2),new THREE.Vector3(7,0,-7),new THREE.Vector3(5,0,9)];
+ const uniforms=[0x4b5947,0x59604d,0x414d48];
  for(let i=0;i<spots.length;i++){
-  const root=new THREE.Group();root.position.copy(spots[i]);
-  const shell=new THREE.MeshStandardMaterial({color:[0x75b9ca,0x90a8b8,0x9db8a4][i],roughness:.5,metalness:.35});
-  const dark=new THREE.MeshStandardMaterial({color:0x263741,roughness:.65,metalness:.2});
-  const body=new THREE.Mesh(new THREE.SphereGeometry(.38,16,12),shell);body.scale.set(1.25,.72,1);body.position.y=1.15;body.castShadow=true;root.add(body);
-  const eye=new THREE.Mesh(new THREE.SphereGeometry(.09,12,8),new THREE.MeshBasicMaterial({color:0x8eeaff}));eye.position.set(0,1.18,-.36);root.add(eye);
-  for(const side of [-1,1]){
-   const pod=new THREE.Mesh(new THREE.CylinderGeometry(.07,.11,.48,8),dark);pod.position.set(side*.42,.92,0);pod.rotation.z=side*.2;root.add(pod);
-   const light=new THREE.PointLight(0x66d9ff,.6,2);light.position.set(side*.42,1.0,-.15);root.add(light);
-  }
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(.48,.025,6,24),new THREE.MeshBasicMaterial({color:0x67cce5,transparent:true,opacity:.8}));ring.rotation.x=Math.PI/2;ring.position.y=.65;root.add(ring);
-  scene.add(root);
-  trainingBots.push({root,home:spots[i].clone(),phase:i*2.1,state:"patrol",lastSeen:null,speed:1.1+i*.15});
+  const soldier=createSoldier(uniforms[i]);
+  soldier.root.position.copy(spots[i]);
+  soldier.lastX=spots[i].x;soldier.lastZ=spots[i].z;
+  scene.add(soldier.root);
+  trainingBots.push({root:soldier.root,soldier,home:spots[i].clone(),phase:i*2.1,state:"patrol",lastSeen:null,speed:1.1+i*.15});
  }
 }
 function updateTrainingBots(dt,now){
  for(const bot of trainingBots){
   const p=bot.root.position,player=new THREE.Vector3(camera.position.x,0,camera.position.z);
   const distance=p.distanceTo(player);
-  if(distance<7) {bot.state="observe";bot.lastSeen=player.clone();}
+  if(distance<7){bot.state="observe";bot.lastSeen=player.clone();}
   else if(bot.state==="observe"&&bot.lastSeen&&p.distanceTo(bot.lastSeen)>1.2)bot.state="return";
   let target;
   if(bot.state==="observe")target=bot.lastSeen;
@@ -312,10 +353,9 @@ function updateTrainingBots(dt,now){
   const delta=target.clone().sub(p);delta.y=0;
   if(delta.length()>.15){
    const step=Math.min(delta.length(),bot.speed*dt);delta.normalize().multiplyScalar(step);p.add(delta);
-   bot.root.rotation.y=Math.atan2(delta.x,delta.z);
+   bot.soldier.targetYaw=Math.atan2(delta.x,delta.z);
   }else if(bot.state==="return")bot.state="patrol";
-  bot.root.position.y=0.08+Math.sin(now*.002+bot.phase)*.12;
-  bot.root.children[0].rotation.z=Math.sin(now*.003+bot.phase)*.06;
+  animateSoldier(bot.soldier,dt,now);
  }
 }
 function animateSoldier(s,dt,now){
@@ -376,7 +416,7 @@ function frame(now){
  }
  camera.position.y=1.65;
  camera.rotation.order="YXZ";camera.rotation.y=yaw;camera.rotation.x=pitch;
- me.position.set(camera.position.x,.8,camera.position.z);me.rotation.y=yaw;
+ const travelled=camera.position.distanceTo(previousCameraPosition);\n previousCameraPosition.copy(camera.position);\n const moving=travelled>0.0005;\n bobPhase+=dt*(moving?11:2.2);\n if(viewModel){\n  const bob=moving?1:0;\n  viewModel.position.set(.34+Math.sin(bobPhase*.5)*.012*bob,-.31+Math.abs(Math.cos(bobPhase))*.014*bob,-.58);\n  viewModel.rotation.set(pitch*.08+Math.sin(bobPhase)*.012*bob,Math.sin(yaw*.35)*.012,Math.sin(bobPhase*.5)*.018*bob);\n }
  for(let i=0;i<objectives.length;i++){
   const o=objectives[i];
   if(!o.done){o.group.rotation.y=now*.00035;o.beacon.intensity=i===objectiveIndex?4.5:1.1;}
@@ -415,7 +455,7 @@ function disposeScene(){
    for(const material of materials){for(const value of Object.values(material)){if(value?.isTexture)value.dispose();}material.dispose();}
   }
  });}
- scene=null;camera=null;me=null;peers.clear();objectives=[];trainingBots=[];characterMixers.clear();collisionBoxes.length=0;
+ scene=null;camera=null;me=null;viewModel=null;peers.clear();objectives=[];trainingBots=[];characterMixers.clear();collisionBoxes.length=0;
 }
 function leaveGame(){
  joined=false;onlineMode=false;
