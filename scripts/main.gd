@@ -2099,82 +2099,53 @@ func _build_city_building(origin: Vector3, width: float, depth: float, height: f
 	var front_z := -depth * 0.5 + wall_thickness * 0.5
 	# Floor and ceiling create a real interior volume instead of a solid block.
 	building.add_child(_make_box(Vector3(0, 0.0, 0), Vector3(width, 0.22, depth), interior_floor))
-	if not furnished:
-		building.add_child(_make_box(Vector3(0, 3.55, 0), Vector3(width - 0.25, 0.22, depth - 0.25), wall.darkened(0.16)))
-	building.add_child(_make_box(Vector3(0, height - 0.18, 0), Vector3(width, 0.36, depth), wall.darkened(0.2)))
-	# Exterior side and rear walls.
-	building.add_child(_make_box(Vector3(-width * 0.5 + wall_thickness * 0.5, height * 0.5, 0), Vector3(wall_thickness, height, depth), wall))
-	building.add_child(_make_box(Vector3(width * 0.5 - wall_thickness * 0.5, height * 0.5, 0), Vector3(wall_thickness, height, depth), wall))
-	building.add_child(_make_box(Vector3(0, height * 0.5, back_z), Vector3(width, height, wall_thickness), wall))
-	# Front facade has two glazed shop windows and a central door opening.
-	var side_pier := 0.42
-	var window_width := maxf(1.4, (width - door_width) * 0.5 - side_pier - 0.28)
-	var window_center_offset := door_width * 0.5 + 0.28 + window_width * 0.5
-	for side in [-1.0, 1.0]:
-		building.add_child(_make_box(Vector3(side * (width * 0.5 - side_pier * 0.5), 1.48, front_z), Vector3(side_pier, 2.96, wall_thickness), wall))
-		building.add_child(_make_box(Vector3(side * window_center_offset, 0.38, front_z), Vector3(window_width + 0.28, 0.76, wall_thickness), wall))
-		building.add_child(_make_box(Vector3(side * window_center_offset, 2.58, front_z), Vector3(window_width + 0.28, 0.76, wall_thickness), wall))
-		building.add_child(_make_box(Vector3(side * (door_width * 0.5 + 0.13), 1.48, front_z), Vector3(0.26, 2.96, wall_thickness), wall))
-		_add_city_glass_pane(building, Vector3(side * window_center_offset, 1.55, front_z - 0.035), Vector2(window_width, 1.35))
-	# Door frame and hinged, collidable door panel.
-	building.add_child(_make_box(Vector3(-door_width * 0.5 - 0.08, door_height * 0.5, front_z), Vector3(0.16, door_height, 0.2), Color("#4a514f")))
-	building.add_child(_make_box(Vector3(door_width * 0.5 + 0.08, door_height * 0.5, front_z), Vector3(0.16, door_height, 0.2), Color("#4a514f")))
-	building.add_child(_make_box(Vector3(0, door_height + 0.12, front_z), Vector3(door_width + 0.32, 0.24, 0.2), Color("#4a514f")))
-	var hinge := Node3D.new()
-	hinge.position = Vector3(-door_width * 0.5, 0, front_z)
-	hinge.name = "InteractiveDoorHinge"
-	building.add_child(hinge)
-	var door_body := _make_box(Vector3(door_width * 0.5, door_height * 0.5, 0), Vector3(door_width, door_height, 0.12), Color("#4b514e"))
-	door_body.name = "InteractiveDoor"
-	door_body.add_to_group("city_door")
-	door_body.set_meta("door_hinge", hinge)
-	door_body.set_meta("door_open", false)
-	hinge.add_child(door_body)
-	# Door hardware and a narrow vision slit.
-	_add_visual(door_body, _make_box_mesh(Vector3(0.035, 0.18, 0.035)), Vector3(door_width * 0.37, 0, -0.075), Color("#c3b58a"), 0.32, 0.65)
-	_add_visual(building, _make_box_mesh(Vector3(0.12, 0.5, 0.025)), Vector3(0, 1.55, front_z - 0.11), Color("#263a43"), 0.28, 0.15)
-	# Interior partition, reception counter and room dressing.
-	building.add_child(_make_box(Vector3(-width * 0.18, 1.45, depth * 0.18), Vector3(0.18, 2.9, depth * 0.42), wall.lightened(0.08)))
-	building.add_child(_make_box(Vector3(width * 0.08, 0.55, depth * 0.2), Vector3(width * 0.42, 1.1, 0.65), Color("#62584b")))
+	# Every city building has an accessible upper floor and a walkable stair core.
+	building.add_child(_make_box(Vector3(0, 3.72, 0), Vector3(width - 0.7, 0.22, depth - 0.7), Color("#6e6a62")))
+	var stair_start_z: float = -depth * 0.35
+	var stair_center_z: float = stair_start_z + 1.98
+	var stair_ramp := _make_box(Vector3(-width * 0.25, 1.88, stair_center_z), Vector3(1.15, 0.18, 5.15), Color("#766f64"))
+	stair_ramp.rotation.x = -0.68
+	building.add_child(stair_ramp)
+	for step_index in range(10):
+		var step_y: float = 0.28 + float(step_index) * 0.36
+		var step_z: float = stair_start_z + float(step_index) * 0.44
+		_add_visual(building, _make_box_mesh(Vector3(1.1, 0.18, 0.5)), Vector3(-width * 0.25, step_y, step_z), Color("#827c70"))
+	for rail_side in [-1.0, 1.0]:
+		for post_index in range(4):
+			var post_z: float = stair_start_z + float(post_index) * 1.32
+			var post_y: float = 0.82 + float(post_index) * 0.92
+			_add_visual(building, _make_box_mesh(Vector3(0.07, 0.95, 0.07)), Vector3(-width * 0.25 + rail_side * 0.68, post_y, post_z), Color("#424c4d"))
+		var rail_mesh := _make_box_mesh(Vector3(0.08, 0.08, 5.15))
+		var handrail := _add_visual(building, rail_mesh, Vector3(-width * 0.25 + rail_side * 0.68, 2.0, stair_center_z), Color("#596365"))
+		handrail.rotation.x = -0.68
+	# Basic desk, chair and storage appear in every accessible building.
+	_add_visual(building, _make_box_mesh(Vector3(1.15, 0.12, 0.65)), Vector3(width * 0.18, 0.88, depth * 0.2), Color("#806b54"))
+	_add_visual(building, _make_box_mesh(Vector3(0.12, 0.78, 0.12)), Vector3(width * 0.18 - 0.42, 0.43, depth * 0.2), Color("#54483c"))
+	_add_visual(building, _make_box_mesh(Vector3(0.12, 0.78, 0.12)), Vector3(width * 0.18 + 0.42, 0.43, depth * 0.2), Color("#54483c"))
+	_add_visual(building, _make_box_mesh(Vector3(0.72, 1.55, 0.38)), Vector3(-width * 0.3, 0.78, depth * 0.25), Color("#554f48"))
 	if furnished:
-		# A second accessible level, staircase, handrails and modest furniture set.
-		building.add_child(_make_box(Vector3(0, 3.72, 0), Vector3(width - 0.7, 0.22, depth - 0.7), Color("#6e6a62")))
-		for step_index in range(10):
-			var step_y: float = 0.28 + float(step_index) * 0.36
-			var step_z: float = -depth * 0.27 + float(step_index) * 0.32
-			building.add_child(_make_box(Vector3(-width * 0.25, step_y, step_z), Vector3(1.1, 0.2, 0.42), Color("#827c70")))
-		for rail_side in [-1.0, 1.0]:
-			for post_index in range(4):
-				var post_z: float = -depth * 0.25 + float(post_index) * 1.05
-				var post_y: float = 0.9 + float(post_index) * 0.72
-				building.add_child(_make_box(Vector3(-width * 0.25 + rail_side * 0.68, post_y, post_z), Vector3(0.07, 0.95, 0.07), Color("#424c4d")))
-			var handrail := _make_box(Vector3(-width * 0.25 + rail_side * 0.68, 2.0, -depth * 0.25 + 1.65), Vector3(0.08, 0.08, 3.8), Color("#596365"))
-			handrail.rotation.x = -0.48
-			building.add_child(handrail)
-		# Ground-floor sofa, table, chairs and storage.
+		# Selected buildings receive a richer room set to make districts feel less repetitive.
 		building.add_child(_make_box(Vector3(width * 0.22, 0.42, -depth * 0.16), Vector3(2.2, 0.72, 0.85), Color("#53645e")))
 		building.add_child(_make_box(Vector3(width * 0.22, 0.86, -depth * 0.16), Vector3(2.2, 0.16, 0.85), Color("#66776e")))
 		building.add_child(_make_box(Vector3(width * 0.12, 0.48, depth * 0.02), Vector3(1.35, 0.12, 0.8), Color("#806b54")))
 		building.add_child(_make_box(Vector3(width * 0.12, 0.23, depth * 0.02), Vector3(0.12, 0.46, 0.12), Color("#54483c")))
 		building.add_child(_make_box(Vector3(width * 0.12, 0.23, depth * 0.02 + 0.62), Vector3(0.12, 0.46, 0.12), Color("#54483c")))
-		building.add_child(_make_box(Vector3(-width * 0.28, 0.95, depth * 0.24), Vector3(0.85, 1.9, 0.42), Color("#554f48")))
-		# Ceiling lights use no shadows to keep the 8 GB target practical.
-		for light_y in [3.2, 6.95]:
-			var room_light := OmniLight3D.new()
-			room_light.position = Vector3(0, light_y, 0)
-			room_light.light_color = Color("#ffe5bd")
-			room_light.light_energy = 0.65
-			room_light.omni_range = 7.0
-			room_light.shadow_enabled = false
-			building.add_child(room_light)
-	else:
-		var room_light := OmniLight3D.new()
-		room_light.position = Vector3(0, 2.95, 0)
-		room_light.light_color = Color("#ffe5bd")
-		room_light.light_energy = 0.38
-		room_light.omni_range = 5.5
-		room_light.shadow_enabled = false
-		building.add_child(room_light)
+	# Ceiling lights have no shadows to keep the 8 GB target practical.
+	var room_light := OmniLight3D.new()
+	room_light.position = Vector3(0, 3.2, 0)
+	room_light.light_color = Color("#ffe5bd")
+	room_light.light_energy = 0.55 if furnished else 0.38
+	room_light.omni_range = 7.0 if furnished else 5.5
+	room_light.shadow_enabled = false
+	building.add_child(room_light)
+	if furnished:
+		var upper_light := OmniLight3D.new()
+		upper_light.position = Vector3(0, 6.95, 0)
+		upper_light.light_color = Color("#ffe5bd")
+		upper_light.light_energy = 0.5
+		upper_light.omni_range = 6.5
+		upper_light.shadow_enabled = false
+		building.add_child(upper_light)
 
 func _make_box_mesh(size: Vector3) -> BoxMesh:
 	var mesh := BoxMesh.new()
