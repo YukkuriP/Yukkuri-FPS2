@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - "release/v*"
     tags:
       - "v*"
 
@@ -29,22 +30,31 @@ jobs:
       - name: Build portable EXE and installer
         run: npm run dist:win -- --publish never
 
-      - name: Publish stable release
+      - name: Publish v0.2.0 prototype release
+        if: github.ref == 'refs/heads/release/v0.2.0' || github.ref == 'refs/tags/v0.2.0'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && 'v0.1.0' || github.ref_name }}
-          name: "Operation: Iron Veil v0.1.0"
+          tag_name: v0.2.0
+          target_commitish: release/v0.2.0
+          name: "Operation: Iron Veil v0.2.0 Prototype"
           body: |
-            Operation: Iron Veil — Windows release build.
+            Operation: Iron Veil v0.2.0 — Prototype release.
+
+            This is a separate formal release from v0.1.0.
+
+            Includes the latest startup loading sequence, operations lobby, city and airport environment updates, and current playable prototype.
 
             Downloads:
             - Portable EXE: run without installation.
             - Setup EXE: install the game and create shortcuts.
 
-            This release includes the portable Windows app and the installer. Online play requires a reachable game server. The game currently loads Three.js from a CDN, so an internet connection is required.
+            Prototype notes:
+            - Player full-body visuals and some gameplay systems are still under development.
+            - Online play requires a reachable game server.
+            - The web client loads Three.js from a CDN and requires an internet connection.
           prerelease: false
           make_latest: true
           files: |
-            release/Operation-Iron-Veil-Portable-0.1.0.exe
-            release/Operation-Iron-Veil-Setup-0.1.0.exe
+            release/Operation-Iron-Veil-Portable-0.2.0.exe
+            release/Operation-Iron-Veil-Setup-0.2.0.exe
           fail_on_unmatched_files: true
