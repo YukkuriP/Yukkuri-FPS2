@@ -210,6 +210,22 @@ function createSoldier(color){
  part(new THREE.SphereGeometry(.145,12,10),gear,root,new THREE.Vector3(0,1.57,0));
  part(new THREE.SphereGeometry(.115,12,10),skin,root,new THREE.Vector3(0,1.78,0));
  part(new THREE.BoxGeometry(.27,.13,.27),dark,root,new THREE.Vector3(0,1.88,0)); // helmet
+ // Layered field equipment: helmet rim, eye protection, face covering and plate-carrier webbing.
+ const webbing=new THREE.MeshStandardMaterial({color:0x59604c,roughness:.96});
+ const lens=new THREE.MeshStandardMaterial({color:0x263b40,roughness:.24,metalness:.18});
+ part(new THREE.BoxGeometry(.31,.035,.30),dark,root,new THREE.Vector3(0,1.84,-.015));
+ part(new THREE.BoxGeometry(.22,.055,.045),lens,root,new THREE.Vector3(0,1.79,-.115));
+ part(new THREE.BoxGeometry(.19,.075,.08),dark,root,new THREE.Vector3(0,1.69,-.105));
+ part(new THREE.BoxGeometry(.09,.23,.055),webbing,root,new THREE.Vector3(-.12,1.34,-.145));
+ part(new THREE.BoxGeometry(.09,.23,.055),webbing,root,new THREE.Vector3(.12,1.34,-.145));
+ part(new THREE.BoxGeometry(.46,.07,.27),dark,root,new THREE.Vector3(0,.91,.02)); // waist belt
+ for(let i=0;i<4;i++){
+  const x=-.18+i*.12;
+  part(new THREE.BoxGeometry(.095,.12,.075),webbing,root,new THREE.Vector3(x,1.02,-.17));
+  part(new THREE.BoxGeometry(.075,.018,.012),dark,root,new THREE.Vector3(x,1.06,-.211));
+ }
+ part(new THREE.BoxGeometry(.28,.37,.16),dark,root,new THREE.Vector3(0,1.25,.19)); // compact pack
+ part(new THREE.BoxGeometry(.34,.13,.08),webbing,root,new THREE.Vector3(0,1.48,.17));
  const makeLimb=(x,y,length,width,material)=>{
   const pivot=new THREE.Group();pivot.position.set(x,y,0);root.add(pivot);
   part(new THREE.CapsuleGeometry(width*.5,length-width,4,6),material,pivot,new THREE.Vector3(0,-length*.42,0));
@@ -221,10 +237,20 @@ function createSoldier(color){
  const rightLeg=makeLimb(.14,.91,.55,.17,cloth);
  for(const [x,leg] of [[-.14,leftLeg],[.14,rightLeg]]){
   part(new THREE.BoxGeometry(.19,.12,.31),dark,leg,new THREE.Vector3(0,-.48,-.055));
+  part(new THREE.BoxGeometry(.19,.16,.07),webbing,leg,new THREE.Vector3(0,-.27,-.085)); // knee pad
+  part(new THREE.BoxGeometry(.205,.11,.34),dark,leg,new THREE.Vector3(0,-.52,-.11)); // boot
+  part(new THREE.BoxGeometry(.18,.035,.25),webbing,leg,new THREE.Vector3(0,-.43,-.12)); // boot cuff
+ }
+ for(const arm of [leftArm,rightArm]){
+  part(new THREE.BoxGeometry(.14,.11,.12),dark,arm,new THREE.Vector3(0,-.39,-.02)); // glove
+  part(new THREE.BoxGeometry(.17,.10,.13),webbing,arm,new THREE.Vector3(0,-.12,-.015)); // shoulder pad
  }
  // A simple low-poly rifle silhouette held across the chest.
  const rifle=new THREE.Group();root.add(rifle);
  part(new THREE.BoxGeometry(.12,.12,.72),dark,rifle,new THREE.Vector3(.12,1.27,-.22));
+ part(new THREE.BoxGeometry(.14,.16,.22),dark,rifle,new THREE.Vector3(.12,1.20,-.04)); // magazine silhouette
+ part(new THREE.BoxGeometry(.08,.035,.16),gear,rifle,new THREE.Vector3(.12,1.36,-.25)); // top rail
+ part(new THREE.BoxGeometry(.09,.055,.11),dark,rifle,new THREE.Vector3(.12,1.40,-.24)); // optic housing
  part(new THREE.CylinderGeometry(.018,.018,.48,6),gear,rifle,new THREE.Vector3(.12,1.3,-.69)).rotation.x=Math.PI/2;
  rifle.rotation.x=-.08;
  const soldier={root,leftArm,rightArm,leftLeg,rightLeg,target:new THREE.Vector3(),targetYaw:0,lastX:0,lastZ:0,speed:0,phase:0,cloth,dark,gear,skin,mixer:null,modelLoaded:false};
