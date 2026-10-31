@@ -969,6 +969,7 @@ func _add_airport(origin: Vector3) -> void:
 
 	# Airport support facilities: hangars, cargo, rescue services, aircraft and airfield details.
 	_add_airport_support_facilities(origin, y)
+	_add_airport_terminal_detailing(origin, y)
 
 func _add_airport_support_facilities(origin: Vector3, y: float) -> void:
 	# Taxiway links the runway to the apron and the hangar/cargo side of the field.
@@ -1159,6 +1160,62 @@ func _add_airport_support_facilities(origin: Vector3, y: float) -> void:
 	radar.height = 1.0
 	var radar_dish := _add_visual(world, radar, Vector3(origin.x + 101.0, y + 4.0, origin.z - 19.0), Color("#a9b2ad"), 0.42, 0.28)
 	radar_dish.scale = Vector3(1.0, 0.22, 1.0)
+
+
+func _add_airport_terminal_detailing(origin: Vector3, y: float) -> void:
+	# Terminal forecourt: covered passenger drop-off lane with raised curb islands.
+	_add_ground_patch(Vector3(origin.x + 43.0, y + 0.22, origin.z - 126.0), Vector3(100.0, 0.24, 24.0), Color("#343b3d"))
+	_add_ground_patch(Vector3(origin.x + 43.0, y + 0.38, origin.z - 114.0), Vector3(100.0, 0.16, 1.0), Color("#aaa99e"))
+	for pillar_index in range(9):
+		var px := origin.x - 2.0 + float(pillar_index) * 11.0
+		world.add_child(_make_box(Vector3(px, y + 3.2, origin.z - 111.0), Vector3(0.65, 6.4, 0.65), Color("#777f7c")))
+	world.add_child(_make_box(Vector3(origin.x + 42.0, y + 6.5, origin.z - 111.0), Vector3(101.0, 0.55, 7.0), Color("#596365")))
+	# Terminal interior silhouettes visible through the glazed frontage: check-in desks and seating.
+	for module_index in range(3):
+		var tx := origin.x + 42.0 + float(module_index) * 28.0
+		var tz := origin.z - 75.0
+		for desk_index in range(3):
+			var dx := tx - 6.0 + float(desk_index) * 6.0
+			world.add_child(_make_box(Vector3(dx, y + 2.0, tz - 9.0), Vector3(4.0, 1.2, 1.4), Color("#535e60")))
+			world.add_child(_make_box(Vector3(dx, y + 2.75, tz - 9.0), Vector3(3.2, 0.18, 0.8), Color("#aeb5ad")))
+		for seat_index in range(4):
+			var sx := tx - 7.0 + float(seat_index) * 4.5
+			world.add_child(_make_box(Vector3(sx, y + 1.0, tz + 4.0), Vector3(2.4, 0.35, 1.0), Color("#52656b")))
+			world.add_child(_make_box(Vector3(sx, y + 1.65, tz + 4.45), Vector3(2.4, 1.0, 0.25), Color("#52656b")))
+		# Gate number pylons at the apron-facing end of each module.
+		world.add_child(_make_box(Vector3(tx, y + 3.0, tz - 20.5), Vector3(2.8, 4.8, 0.45), Color("#26353a")))
+	# Baggage handling annex behind the terminal.
+	world.add_child(_make_box(Vector3(origin.x + 42.0, y + 3.0, origin.z - 43.0), Vector3(74.0, 6.0, 12.0), Color("#68716f")))
+	world.add_child(_make_box(Vector3(origin.x + 42.0, y + 6.15, origin.z - 43.0), Vector3(75.0, 0.35, 13.0), Color("#454d4e")))
+	for belt_index in range(4):
+		var bx := origin.x + 12.0 + float(belt_index) * 20.0
+		world.add_child(_make_box(Vector3(bx, y + 1.1, origin.z - 43.0), Vector3(12.0, 0.5, 2.2), Color("#30383a")))
+	# Car-park lighting and small parked-car silhouettes to give scale.
+	for light_index in range(4):
+		var lx := origin.x - 85.0 + float(light_index) * 13.0
+		world.add_child(_make_box(Vector3(lx, y + 4.5, origin.z - 101.0), Vector3(0.22, 9.0, 0.22), Color("#555d5d")))
+		world.add_child(_make_box(Vector3(lx + 1.2, y + 9.0, origin.z - 101.0), Vector3(2.6, 0.18, 0.18), Color("#777f7c")))
+	for car_index in range(6):
+		var cx := origin.x - 82.0 + float(car_index) * 7.0
+		var cz := origin.z - 108.0 if car_index % 2 == 0 else origin.z - 91.0
+		world.add_child(_make_box(Vector3(cx, y + 0.95, cz), Vector3(4.2, 1.4, 2.0), Color("#6e7777") if car_index % 2 == 0 else Color("#596b78")))
+		world.add_child(_make_box(Vector3(cx, y + 1.72, cz), Vector3(2.2, 0.55, 1.65), Color("#26373d")))
+	# Runway PAPI-style visual approach indicators beside the threshold.
+	for end_side in [-1.0, 1.0]:
+		var papi_z := origin.z + end_side * 136.0
+		for lamp_index in range(4):
+			var px := origin.x + 16.0 + float(lamp_index) * 1.2
+			world.add_child(_make_box(Vector3(px, y + 0.8, papi_z), Vector3(0.8, 0.55, 0.55), Color("#e6e0cb")))
+			world.add_child(_make_box(Vector3(px, y + 0.82, papi_z - end_side * 0.31), Vector3(0.55, 0.28, 0.08), Color("#c65d4d") if lamp_index < 2 else Color("#e6e0cb")))
+	# Perimeter access checkpoint: guard booth, barrier arms and lane separators.
+	var gate_x := origin.x - 91.0
+	var gate_z := origin.z + 151.0
+	world.add_child(_make_box(Vector3(gate_x, y + 2.0, gate_z), Vector3(8.0, 4.0, 7.0), Color("#777e79")))
+	world.add_child(_make_box(Vector3(gate_x, y + 4.1, gate_z), Vector3(8.5, 0.35, 7.5), Color("#41494b")))
+	for lane_index in range(2):
+		var lane_x := gate_x + 7.0 + float(lane_index) * 5.0
+		world.add_child(_make_box(Vector3(lane_x, y + 1.1, gate_z - 2.0), Vector3(0.35, 2.2, 0.35), Color("#e0dfd5")))
+		world.add_child(_make_box(Vector3(lane_x + 3.0, y + 1.5, gate_z - 2.0), Vector3(6.0, 0.18, 0.18), Color("#d5d0b7")))
 
 func _add_farmland(origin: Vector3) -> void:
 	for i in range(5):
