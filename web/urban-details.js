@@ -34,34 +34,34 @@ export function addUrbanDetails(scene) {
     {x:8,z:7,w:2.2,h:1.3,d:2.5}
   ];
   for (let i=0;i<buildings.length;i++) {
-    const b=buildings[i], front=b.z-b.d/2-.018;
-    // Recessed-looking window panels, lintels and sill ledges.
+    // Dress both street-facing sides so the facade remains detailed when approached from either direction.
     const rows=Math.max(1,Math.floor((b.h-.35)/.85));
     const cols=Math.max(1,Math.floor(b.w/.82));
-    for(let row=0;row<rows;row++) for(let col=0;col<cols;col++) {
-      const x=b.x+(col-(cols-1)/2)*.78;
-      const y=.42+row*.78;
-      if(y>b.h-.22) continue;
-      box(x,y,front,.43,.38,.035,trim);
-      box(x,y,front-.022,.34,.29,.018,(row+col+i)%4===0?litGlass:glass);
-      box(x,y+.205,front-.025,.49,.045,.055,concrete);
-      box(x,y-.205,front-.025,.49,.045,.055,concrete);
-      box(x-.205,y,front-.025,.045,.38,.055,concrete);
-      box(x+.205,y,front-.025,.045,.38,.055,concrete);
-    }
-    // A small wall-mounted ventilation unit and pipework.
-    if(b.h>1.5) {
-      const ax=b.x+b.w*.32, ay=Math.min(b.h-.35,1.45);
-      box(ax,ay,front-.16,.62,.34,.22,metal);
-      box(ax,ay-.02,front-.285,.43,.18,.025,darkConcrete);
-      for(let k=-1;k<=1;k++) box(ax+k*.12,ay-.02,front-.305,.025,.14,.018,concrete);
-      cylinder(ax+.39,ay-.13,front-.16,.035,.035,.55,metal).rotation.z=Math.PI/2;
-    }
-    // Stained lower plinth and subtle vertical repair strips.
-    box(b.x,b.h>.5?.19:.1,front+.025,b.w+.04,.16,.08,darkConcrete);
-    for(let k=0;k<2;k++) {
-      const x=b.x+(k?1:-1)*b.w*.38;
-      box(x,b.h*.52,front+.012,.035,b.h*.72,.025,fadedPaint);
+    for(const face of [-1,1]) {
+      const front=b.z+face*(b.d/2+.018), outward=face;
+      for(let row=0;row<rows;row++) for(let col=0;col<cols;col++) {
+        const x=b.x+(col-(cols-1)/2)*.78;
+        const y=.42+row*.78;
+        if(y>b.h-.22) continue;
+        box(x,y,front,.43,.38,.035,trim);
+        box(x,y,front+outward*.022,.34,.29,.018,(row+col+i)%4===0?litGlass:glass);
+        box(x,y+.205,front+outward*.025,.49,.045,.055,concrete);
+        box(x,y-.205,front+outward*.025,.49,.045,.055,concrete);
+        box(x-.205,y,front+outward*.025,.045,.38,.055,concrete);
+        box(x+.205,y,front+outward*.025,.045,.38,.055,concrete);
+      }
+      if(b.h>1.5) {
+        const ax=b.x+b.w*.32, ay=Math.min(b.h-.35,1.45);
+        box(ax,ay,front+outward*.16,.62,.34,.22,metal);
+        box(ax,ay-.02,front+outward*.285,.43,.18,.025,darkConcrete);
+        for(let k=-1;k<=1;k++) box(ax+k*.12,ay-.02,front+outward*.305,.025,.14,.018,concrete);
+        cylinder(ax+.39,ay-.13,front+outward*.16,.035,.035,.55,metal).rotation.z=Math.PI/2;
+      }
+      box(b.x,b.h>.5?.19:.1,front-outward*.025,b.w+.04,.16,.08,darkConcrete);
+      for(let k=0;k<2;k++) {
+        const x=b.x+(k?1:-1)*b.w*.38;
+        box(x,b.h*.52,front-outward*.012,.035,b.h*.72,.025,fadedPaint);
+      }
     }
   }
 
