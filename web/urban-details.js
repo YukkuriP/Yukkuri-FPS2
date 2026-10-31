@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-export function addUrbanDetails(scene) {
+export function addUrbanDetails(scene, collisionBoxes = []) {
   const material = (color, roughness = .9, metalness = .04) =>
     new THREE.MeshStandardMaterial({ color, roughness, metalness });
   const concrete = material(0x777d7c);
@@ -68,11 +68,12 @@ export function addUrbanDetails(scene) {
   // Utility cabinets, waste bins and bollards along the sidewalks.
   for(const [x,z] of [[-6.8,-8.1],[6.8,8.1],[-6.8,8.1],[6.8,-8.1]]) {
     box(x,.62,z,.72,1.12,.48,concrete);
+    collisionBoxes.push({minX:x-.36,maxX:x+.36,minZ:z-.24,maxZ:z+.24});
     box(x,.65,z-.251,.58,.82,.025,darkConcrete);
     box(x,.94,z-.27,.34,.08,.035,metal);
     for(let k=0;k<3;k++) box(x-.2+k*.2,.23,z-.27,.025,.035,.025,fadedPaint);
   }
-  const bollards = new THREE.InstancedMesh(new THREE.CylinderGeometry(.095,.12,.72,8),metal,24);
+  const bollards = new THREE.InstancedMesh(new THREE.CylinderGeometry(.095,.12,.72,8),metal,26);
   const dummy=new THREE.Object3D(); let n=0;
   for(const side of [-1,1]) for(let z=-15;z<=15;z+=2.5) {
     dummy.position.set(side*6.95,.36,z); dummy.rotation.set(0,0,0); dummy.updateMatrix();
