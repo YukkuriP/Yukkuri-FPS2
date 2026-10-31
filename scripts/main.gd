@@ -497,6 +497,8 @@ func _build_large_map() -> void:
 	_add_urban_road_grid(Vector3(-280, 0, -215), 5, 4, 24.0)
 	_add_city_street_details(Vector3(-245, 0, 25), 7, 5, 19.0)
 	_add_city_street_details(Vector3(-280, 0, -215), 5, 4, 24.0)
+	_add_city_life_details(Vector3(-245, 0, 25), 7, 5, 19.0, true)
+	_add_city_life_details(Vector3(-280, 0, -215), 5, 4, 24.0, false)
 	_add_factory(Vector3(250, 0, -245))
 	_add_airport(Vector3(300, 0, 265))
 	_add_farmland(Vector3(-285, 0, 285))
@@ -2105,3 +2107,58 @@ func _add_city_street_details(origin: Vector3, cols: int, rows: int, spacing: fl
 	var bench := BoxMesh.new()
 	bench.size = Vector3(2.2, 0.12, 0.4)
 	_add_visual(world, bench, Vector3(sx, sy + 0.55, origin.z - 0.35), Color("#65594a"), 0.86)
+
+
+func _add_city_life_details(origin: Vector3, cols: int, rows: int, spacing: float, add_shop: bool) -> void:
+	# Parked cars are visual-only so they do not complicate player movement or physics.
+	var car_colors: Array[Color] = [Color("#555d60"), Color("#8b3028"), Color("#d0c9b8"), Color("#283b4b")]
+	var parking_x := origin.x + float(cols - 1) * spacing * 0.5 + 9.0
+	for index in range(3):
+		var z := origin.z - spacing + float(index) * spacing
+		var y := _terrain_height(parking_x, z)
+		var body := BoxMesh.new()
+		body.size = Vector3(2.15, 0.72, 4.1)
+		_add_visual(world, body, Vector3(parking_x, y + 0.72, z), car_colors[index % car_colors.size()], 0.68, 0.12)
+		var cabin := BoxMesh.new()
+		cabin.size = Vector3(1.72, 0.66, 2.05)
+		_add_visual(world, cabin, Vector3(parking_x, y + 1.36, z - 0.12), Color("#394b52"), 0.28, 0.18)
+		for side in [-1.0, 1.0]:
+			for axle in [-1.0, 1.0]:
+				var wheel := CylinderMesh.new()
+				wheel.top_radius = 0.34
+				wheel.bottom_radius = 0.34
+				wheel.height = 0.2
+				var wheel_node := _add_visual(world, wheel, Vector3(parking_x + side * 1.08, y + 0.38, z + axle * 1.25), Color("#202426"), 0.95)
+				wheel_node.rotation.z = PI * 0.5
+		var window := BoxMesh.new()
+		window.size = Vector3(1.5, 0.38, 0.05)
+		_add_visual(world, window, Vector3(parking_x, y + 1.43, z - 1.17), Color("#78909a"), 0.24, 0.2)
+	# A small convenience store set just beyond the main block row.
+	if add_shop:
+		var sx := origin.x + float(cols - 1) * spacing * 0.5 + 20.0
+		var sz := origin.z + float(rows - 1) * spacing * 0.5 + 13.0
+		var sy := _terrain_height(sx, sz)
+		var store := BoxMesh.new()
+		store.size = Vector3(15.0, 5.2, 11.0)
+		_add_visual(world, store, Vector3(sx, sy + 2.6, sz), Color("#d0c9b8"), 0.88)
+		var fascia := BoxMesh.new()
+		fascia.size = Vector3(14.6, 0.72, 0.18)
+		_add_visual(world, fascia, Vector3(sx, sy + 4.75, sz - 5.58), Color("#426c55"), 0.72)
+		var shop_glass := BoxMesh.new()
+		shop_glass.size = Vector3(8.5, 2.0, 0.08)
+		_add_visual(world, shop_glass, Vector3(sx - 1.0, sy + 1.8, sz - 5.58), Color("#29434b"), 0.28, 0.16)
+		var canopy := BoxMesh.new()
+		canopy.size = Vector3(15.8, 0.18, 2.0)
+		_add_visual(world, canopy, Vector3(sx, sy + 4.0, sz - 6.4), Color("#657b78"), 0.78)
+		# Rear service alley wall and loading door.
+		var service_door := BoxMesh.new()
+		service_door.size = Vector3(3.2, 2.8, 0.12)
+		_add_visual(world, service_door, Vector3(sx + 4.5, sy + 1.45, sz + 5.58), Color("#555d5b"), 0.82)
+		var sign_panel := BoxMesh.new()
+		sign_panel.size = Vector3(4.2, 0.9, 0.2)
+		_add_visual(world, sign_panel, Vector3(sx + 4.2, sy + 4.6, sz - 5.62), Color("#a53c32"), 0.65)
+		# Two low parking separators mark the shop forecourt.
+		for index in range(2):
+			var curb := BoxMesh.new()
+			curb.size = Vector3(0.18, 0.22, 5.0)
+			_add_visual(world, curb, Vector3(sx - 5.0 + float(index) * 10.0, sy + 0.12, sz - 10.0), Color("#aaa99e"), 0.9)
