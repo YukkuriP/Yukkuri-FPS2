@@ -416,7 +416,15 @@ function frame(now){
  }
  camera.position.y=1.65;
  camera.rotation.order="YXZ";camera.rotation.y=yaw;camera.rotation.x=pitch;
- const travelled=camera.position.distanceTo(previousCameraPosition);\n previousCameraPosition.copy(camera.position);\n const moving=travelled>0.0005;\n bobPhase+=dt*(moving?11:2.2);\n if(viewModel){\n  const bob=moving?1:0;\n  viewModel.position.set(.34+Math.sin(bobPhase*.5)*.012*bob,-.31+Math.abs(Math.cos(bobPhase))*.014*bob,-.58);\n  viewModel.rotation.set(pitch*.08+Math.sin(bobPhase)*.012*bob,Math.sin(yaw*.35)*.012,Math.sin(bobPhase*.5)*.018*bob);\n }
+ const travelled=camera.position.distanceTo(previousCameraPosition);
+ previousCameraPosition.copy(camera.position);
+ const moving=travelled>0.0005;
+ bobPhase+=dt*(moving?11:2.2);
+ if(viewModel){
+  const bob=moving?1:0;
+  viewModel.position.set(.34+Math.sin(bobPhase*.5)*.012*bob,-.31+Math.abs(Math.cos(bobPhase))*.014*bob,-.58);
+  viewModel.rotation.set(pitch*.08+Math.sin(bobPhase)*.012*bob,Math.sin(yaw*.35)*.012,Math.sin(bobPhase*.5)*.018*bob);
+ }
  for(let i=0;i<objectives.length;i++){
   const o=objectives[i];
   if(!o.done){o.group.rotation.y=now*.00035;o.beacon.intensity=i===objectiveIndex?4.5:1.1;}
