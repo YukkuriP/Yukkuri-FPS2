@@ -1,0 +1,48 @@
+name: Godot Project Check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "fix/**"
+  workflow_dispatch:
+
+jobs:
+  project-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check browser JavaScript syntax
+        run: node --check web/client.js
+
+      - name: Install server dependency
+        run: python -m pip install -r server/requirements.txt
+
+      - name: Check server Python syntax
+        run: python -m py_compile server/main.py
+
+      - name: Run server unit tests
+        run: python -m unittest discover -s server -p 'test_*.py'
+
+      - name: Validate package metadata
+        run: python -m json.tool package.json > /dev/null
+
+      - name: Set up Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.4.1
+          use-dotnet: false
+
+      - name: Import project and parse scripts
+        run: godot --headless --editor --path . --quit
+
+      - name: Start project briefly
+        run: godot --headless --path . --quit-after 10

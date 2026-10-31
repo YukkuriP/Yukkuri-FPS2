@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#080e15">
+<title>Operation: Iron Veil — Web Edition</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="intro" class="screen">
+  <div class="eyebrow">OPERATION: IRON VEIL</div>
+  <div id="credit">ゆっくりP製作</div>
+  <div class="sub">INITIALIZING SYSTEMS</div>
+</div>
+<div id="lobby" class="screen hidden">
+  <header><div class="eyebrow">YUKKURI P PRODUCTION</div><h1>OPERATION: <span>IRON VEIL</span></h1><p>WEB EDITION · PLAYABLE TEST BUILD</p></header>
+  <section class="panel">
+    <h2>ゲームモード選択</h2>
+    <p class="hint">プレイするモードを選んでください。オフラインはサーバー不要で開始できます。</p>
+    <label>プレイヤー名<input id="playerName" maxlength="16" value="Operator"></label>
+    <div class="modeChoices">
+      <button id="offlineBtn" class="modeCard">
+        <span class="modeIcon">◈</span>
+        <strong>オフライン</strong>
+        <small>訓練ミッション · サーバー不要</small>
+        <span class="modeAction">訓練を開始 →</span>
+      </button>
+      <button id="showOnlineBtn" class="modeCard">
+        <span class="modeIcon">⌁</span>
+        <strong>オンライン</strong>
+        <small>ルームに接続してマルチプレイ</small>
+        <span class="modeAction">オンライン設定 →</span>
+      </button>
+    </div>
+    <section id="onlinePanel" class="onlinePanel hidden">
+      <div class="onlineHeading"><span class="onlineDot"></span><strong>ONLINE MULTIPLAYER</strong></div>
+      <label>ルームコード<input id="roomCode" maxlength="12" value="IRON-01"></label>
+      <label>通信サーバー（wss://）<input id="serverUrl" value="wss://iron-veil-server.onrender.com" placeholder="wss://your-server.example" autocomplete="url"></label>
+      <button id="joinBtn" class="joinAction">接続して参加</button>
+      <button id="backModesBtn" class="backAction">← モード選択に戻る</button>
+      <p id="status" role="status">未接続。サーバーとネットワークの接続を確認してください。</p>
+    </section>
+    <p class="hint controlsHint">操作：WASD / 矢印キーで移動、Shiftでダッシュ、マウスで視点。スマホは画面上の操作ボタンと右側ドラッグを使用。</p>
+  </section>
+  <footer>LOCAL TRAINING · OPTIONAL ONLINE MULTIPLAYER</footer>
+</div>
+<div id="game" class="hidden">
+  <canvas id="view"></canvas>
+  <div id="hud"><div>IRON VEIL <span id="roomLabel">TRAINING</span></div><div id="players">オフライン訓練</div><div id="missionHud">目標 1/3</div><div id="timer">03:00</div><button id="leaveBtn">メニュー</button></div>
+  <div id="objectiveBanner">目標地点へ向かえ</div>
+  <div id="crosshair">+</div>
+  <div id="touchControls">
+    <div class="pad"><button data-move="forward">▲</button><div><button data-move="left">◀</button><button data-move="back">▼</button><button data-move="right">▶</button></div></div>
+    <div class="lookpad">視点操作<br><small>右側をドラッグ</small></div>
+  </div>
+</div>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+    }
+  }
+  </script>
+<script type="module" src="./client.js"></script>
+</body>
+</html>
