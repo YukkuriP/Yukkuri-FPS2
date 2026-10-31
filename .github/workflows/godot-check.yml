@@ -23,8 +23,14 @@ jobs:
       - name: Check browser JavaScript syntax
         run: node --check web/client.js
 
+      - name: Install server dependency
+        run: python -m pip install -r server/requirements.txt
+
       - name: Check server Python syntax
         run: python -m py_compile server/main.py
+
+      - name: Run server unit tests
+        run: python -m unittest discover -s server -p 'test_*.py'
 
       - name: Validate package metadata
         run: python -m json.tool package.json > /dev/null

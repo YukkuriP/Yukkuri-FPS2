@@ -11,6 +11,7 @@ from websockets.asyncio.server import serve
 rooms = {}
 MAX_MESSAGE_BYTES = 4096
 MAX_ROOM_PLAYERS = 16
+MAX_ROOMS = 128
 MOVE_INTERVAL_SECONDS = 1 / 15
 ROOM_PATTERN = re.compile(r"[^A-Z0-9_-]+")
 PLAYER_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -70,6 +71,10 @@ async def handler(ws):
             if kind == "join" and player is None:
                 requested_room = clean_text(data.get("room"), "IRON-01", 12).upper()
                 room = ROOM_PATTERN.sub("", requested_room)[:12] or "IRON-01"
+                if room not in rooms and len(rooms) >= MAX_ROOMS:
+                    await send_json(ws, {"type": "error", "message": "現在ルーム数が上限に達しています。"})
+                    await ws.close(code=1008, reason="server room limit")
+                    return
                 room_players = rooms.setdefault(room, {})
                 if len(room_players) >= MAX_ROOM_PLAYERS:
                     await send_json(ws, {"type": "error", "message": f"このルームは満員です（最大{MAX_ROOM_PLAYERS}人）。"})
