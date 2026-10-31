@@ -253,6 +253,10 @@ func _show_settings() -> void:
 	root_ui.add_child(back)
 
 func _start_training() -> void:
+	# A retry must dispose of the previous world before creating another 1 km map.
+	if is_instance_valid(world):
+		world.queue_free()
+	world = null
 	in_training = true
 	game_paused = false
 	ammo = 30
@@ -355,6 +359,8 @@ func _build_training_world() -> void:
 	look_pitch = 0.0
 	previous_player_position = player.position
 	_build_weapon()
+	# Keep the map AI-free, but retain static targets for testing the weapon and hit detection.
+	_spawn_training_targets()
 
 
 func _terrain_height(x: float, z: float) -> float:
