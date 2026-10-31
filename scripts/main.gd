@@ -2112,7 +2112,7 @@ func _add_city_street_details(origin: Vector3, cols: int, rows: int, spacing: fl
 func _add_city_life_details(origin: Vector3, cols: int, rows: int, spacing: float, add_shop: bool) -> void:
 	# Parked cars are visual-only so they do not complicate player movement or physics.
 	var car_colors: Array[Color] = [Color("#555d60"), Color("#8b3028"), Color("#d0c9b8"), Color("#283b4b")]
-	var parking_x := origin.x + float(cols - 1) * spacing * 0.5 + 9.0
+	var parking_x := origin.x + float(cols - 1) * spacing * 0.5 + 15.0
 	for index in range(3):
 		var z := origin.z - spacing + float(index) * spacing
 		var y := _terrain_height(parking_x, z)
