@@ -48,14 +48,14 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish prototype release
+      - name: Publish stable release
         if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') || startsWith(github.ref, 'refs/heads/release/')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}-prototype', steps.app-version.outputs.version) || startsWith(github.ref, 'refs/heads/release/') && format('v{0}', steps.app-version.outputs.version) || github.ref_name }}
-          name: "Operation: Iron Veil v${{ steps.app-version.outputs.version }} Prototype"
+          name: "Operation: Iron Veil v${{ steps.app-version.outputs.version }}"
           body: |
-            Prototype Windows build of Operation: Iron Veil.
+            Windows release of Operation: Iron Veil.
 
             Downloads:
             - Portable EXE: run without installation.
@@ -63,8 +63,8 @@ jobs:
 
             This is an early prototype. Test the generated files before distributing them.
             Online play requires a reachable WebSocket server. The browser client loads Three.js from a CDN, so an internet connection is required.
-          prerelease: true
-          make_latest: false
+          prerelease: false
+          make_latest: true
           files: |
             release/Operation-Iron-Veil-Portable-${{ steps.app-version.outputs.version }}.exe
             release/Operation-Iron-Veil-Setup-${{ steps.app-version.outputs.version }}.exe
