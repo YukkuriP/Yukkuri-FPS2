@@ -1089,6 +1089,69 @@ func _add_airport_support_facilities(origin: Vector3, y: float) -> void:
 		vertical.size = Vector3(0.09, 0.09, 320.0)
 		_add_visual(world, vertical, Vector3(fence_min_x, rail_y, origin.z), Color("#78817d"), 0.8)
 		_add_visual(world, vertical, Vector3(fence_max_x, rail_y, origin.z), Color("#78817d"), 0.8)
+	# Passenger boarding bridges: enclosed elevated corridors from terminal gates to the apron.
+	for gate_index in range(3):
+		var gate_x := origin.x + 42.0 + float(gate_index) * 28.0
+		var bridge_z := origin.z - 94.0
+		world.add_child(_make_box(Vector3(gate_x, y + 5.6, bridge_z), Vector3(4.2, 1.1, 18.0), Color("#aeb5b1")))
+		world.add_child(_make_box(Vector3(gate_x, y + 6.35, bridge_z), Vector3(3.6, 0.22, 17.2), Color("#465358")))
+		for side in [-1.0, 1.0]:
+			world.add_child(_make_box(Vector3(gate_x + side * 2.05, y + 5.8, bridge_z), Vector3(0.12, 1.0, 17.5), Color("#60747a")))
+		world.add_child(_make_box(Vector3(gate_x, y + 3.0, origin.z - 84.0), Vector3(0.55, 6.0, 0.55), Color("#737b78")))
+	# Passenger car park with marked bays, planted islands and a short access road.
+	var parking_center := Vector3(origin.x - 65.0, y + 0.22, origin.z - 101.0)
+	_add_ground_patch(parking_center, Vector3(48.0, 0.24, 43.0), Color("#373e40"))
+	for row_index in range(2):
+		var row_z := parking_center.z - 10.0 + float(row_index) * 20.0
+		for bay_index in range(9):
+			var bay_x := parking_center.x - 20.0 + float(bay_index) * 5.0
+			_add_ground_patch(Vector3(bay_x, y + 0.38, row_z), Vector3(0.12, 0.04, 8.0), Color("#d8d7ca"))
+	for island_index in range(3):
+		var island_x := parking_center.x - 15.0 + float(island_index) * 15.0
+		_add_ground_patch(Vector3(island_x, y + 0.42, parking_center.z), Vector3(2.0, 0.18, 38.0), Color("#65734d"))
+		for shrub_index in range(3):
+			var shrub := SphereMesh.new()
+			shrub.radius = 1.1
+			shrub.height = 1.6
+			var shrub_instance := _add_visual(world, shrub, Vector3(island_x, y + 1.1, parking_center.z - 12.0 + float(shrub_index) * 12.0), Color("#405b3b"), 0.95)
+			shrub_instance.scale = Vector3(1.2, 0.7, 1.0)
+	_add_ground_patch(Vector3(origin.x - 65.0, y + 0.32, origin.z - 132.0), Vector3(12.0, 0.16, 28.0), Color("#303638"))
+	# Fuel storage compound and tanker loading point on the service side.
+	var fuel_x := origin.x + 76.0
+	var fuel_z := origin.z + 65.0
+	_add_ground_patch(Vector3(fuel_x, y + 0.18, fuel_z), Vector3(30.0, 0.24, 34.0), Color("#555b57"))
+	for tank_index in range(3):
+		var tank_x := fuel_x - 9.0 + float(tank_index) * 9.0
+		var tank := CylinderMesh.new()
+		tank.top_radius = 3.3
+		tank.bottom_radius = 3.3
+		tank.height = 7.0
+		_add_visual(world, tank, Vector3(tank_x, y + 3.8, fuel_z), Color("#858c87"), 0.5, 0.28)
+		var tank_roof := SphereMesh.new()
+		tank_roof.radius = 3.3
+		tank_roof.height = 1.0
+		var roof_instance := _add_visual(world, tank_roof, Vector3(tank_x, y + 7.2, fuel_z), Color("#737c77"), 0.48, 0.22)
+		roof_instance.scale = Vector3(1.0, 0.25, 1.0)
+	# Windsock and airfield information signs.
+	world.add_child(_make_box(Vector3(origin.x - 84.0, y + 4.0, origin.z + 18.0), Vector3(0.22, 8.0, 0.22), Color("#777d78")))
+	var windsock := CylinderMesh.new()
+	windsock.top_radius = 0.04
+	windsock.bottom_radius = 0.65
+	windsock.height = 3.8
+	var windsock_instance := _add_visual(world, windsock, Vector3(origin.x - 84.0, y + 7.0, origin.z + 19.8), Color("#e2dfd1"), 0.75)
+	windsock_instance.rotation_degrees.x = 90.0
+	world.add_child(_make_box(Vector3(origin.x + 10.0, y + 2.0, origin.z - 145.0), Vector3(12.0, 4.0, 0.6), Color("#343e42")))
+	# Approach-light bars beyond both runway thresholds, kept outside the paved surface.
+	for end_side in [-1.0, 1.0]:
+		for light_row in range(5):
+			var light_z := origin.z + end_side * (143.0 + float(light_row) * 5.0)
+			for light_col in range(3):
+				var light_x := origin.x - 3.0 + float(light_col) * 3.0
+				var approach_lamp := SphereMesh.new()
+				approach_lamp.radius = 0.18
+				approach_lamp.height = 0.36
+				var approach_instance := _add_visual(world, approach_lamp, Vector3(light_x, y + 0.45, light_z), Color("#e1d9b6"), 0.4, 0.0)
+				approach_instance.scale = Vector3(1.0, 0.7, 1.0)
 	# Radar dish silhouette near the tower, on a compact equipment plinth.
 	world.add_child(_make_box(Vector3(origin.x + 101.0, y + 1.2, origin.z - 19.0), Vector3(7.0, 2.4, 7.0), Color("#555e5e")))
 	var radar := SphereMesh.new()
