@@ -2100,7 +2100,8 @@ func _build_city_building(origin: Vector3, width: float, depth: float, height: f
 	var back_z := depth * 0.5 - wall_thickness * 0.5
 	# Floor and ceiling create a real interior volume instead of a solid block.
 	building.add_child(_make_box(Vector3(0, 0.0, 0), Vector3(width, 0.22, depth), interior_floor))
-	building.add_child(_make_box(Vector3(0, 3.55, 0), Vector3(width - 0.25, 0.22, depth - 0.25), wall.darkened(0.16)))
+	if not furnished:
+		building.add_child(_make_box(Vector3(0, 3.55, 0), Vector3(width - 0.25, 0.22, depth - 0.25), wall.darkened(0.16)))
 	building.add_child(_make_box(Vector3(0, height - 0.18, 0), Vector3(width, 0.36, depth), wall.darkened(0.2)))
 	# Exterior side and rear walls.
 	building.add_child(_make_box(Vector3(-width * 0.5 + wall_thickness * 0.5, height * 0.5, 0), Vector3(wall_thickness, height, depth), wall))
