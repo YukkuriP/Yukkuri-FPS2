@@ -29,21 +29,21 @@ jobs:
       - name: Build portable EXE and installer
         run: npm run dist:win -- --publish never
 
-      - name: Publish prototype release
+      - name: Publish stable release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && 'v0.1.0-prototype' || github.ref_name }}
-          name: "Operation: Iron Veil v0.1.0 Prototype"
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && 'v0.1.0' || github.ref_name }}
+          name: "Operation: Iron Veil v0.1.0"
           body: |
-            Prototype Windows build of Operation: Iron Veil.
+            Operation: Iron Veil — Windows release build.
 
             Downloads:
             - Portable EXE: run without installation.
             - Setup EXE: install the game and create shortcuts.
 
-            This is an early prototype and has not been fully tested on all Windows devices. Online play requires a reachable game server. The game currently loads Three.js from a CDN, so an internet connection is required.
-          prerelease: true
-          make_latest: false
+            This release includes the portable Windows app and the installer. Online play requires a reachable game server. The game currently loads Three.js from a CDN, so an internet connection is required.
+          prerelease: false
+          make_latest: true
           files: |
             release/Operation-Iron-Veil-Portable-0.1.0.exe
             release/Operation-Iron-Veil-Setup-0.1.0.exe

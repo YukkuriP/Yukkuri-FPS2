@@ -8,16 +8,19 @@
 <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-<div id="intro" class="screen">
+<div id="intro" class="screen intro-screen">
   <div class="eyebrow">OPERATION: IRON VEIL</div>
   <div id="credit">ゆっくりP製作</div>
-  <div class="sub">INITIALIZING SYSTEMS</div>
+  <div class="sub" id="loadStatus">SYSTEM INITIALIZATION</div>
+  <div class="load-track"><span id="loadProgress"></span></div>
+  <div class="load-percent" id="loadPercent">0%</div>
 </div>
-<div id="lobby" class="screen hidden">
-  <header><div class="eyebrow">YUKKURI P PRODUCTION</div><h1>OPERATION: <span>IRON VEIL</span></h1><p>WEB EDITION · PLAYABLE TEST BUILD</p></header>
-  <section class="panel">
-    <h2>ゲームモード選択</h2>
-    <p class="hint">プレイするモードを選んでください。オフラインはサーバー不要で開始できます。</p>
+<div id="lobby" class="screen lobby-screen hidden">
+  <header class="lobby-header"><div><div class="eyebrow">YUKKURI P PRODUCTION</div><h1>OPERATION: <span>IRON VEIL</span></h1><p>TACTICAL OPERATIONS CENTER</p></div><div class="profile-chip"><span class="profile-dot"></span><span>LOCAL OPERATOR</span><strong>READY</strong></div></header>
+  <section class="panel lobby-panel">
+    <div class="lobby-kicker">DEPLOYMENT CONTROL</div>
+    <h2>作戦ロビー</h2>
+    <p class="hint">出撃する作戦を選択してください。オフライン訓練はサーバー接続なしで開始できます。</p>
     <label>プレイヤー名<input id="playerName" maxlength="16" value="Operator"></label>
     <div class="modeChoices">
       <button id="offlineBtn" class="modeCard">
@@ -43,7 +46,7 @@
     </section>
     <p class="hint controlsHint">操作：WASD / 矢印キーで移動、Shiftでダッシュ、マウスで視点。スマホは画面上の操作ボタンと右側ドラッグを使用。</p>
   </section>
-  <footer>LOCAL TRAINING · OPTIONAL ONLINE MULTIPLAYER</footer>
+  <footer>IRON VEIL OPERATIONS NETWORK <span>•</span> OFFLINE / ONLINE</footer>
 </div>
 <div id="game" class="hidden">
   <canvas id="view"></canvas>

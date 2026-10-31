@@ -8,6 +8,7 @@ let peers = new Map(), move = {forward:false,back:false,left:false,right:false};
 const characterLoader = new GLTFLoader();
 const characterModelUrl = "./assets/characters/operator.glb";
 const characterMixers = new Set();
+let startupGroundTexture = null;
 let trainingBots = [];
 let viewArms = null, cameraBob = 0;
 let touchLook = false, lastTouch = null, joined = false, onlineMode = false;
@@ -16,7 +17,26 @@ let ammo = 30, reserveAmmo = 120, reloading = false, reloadUntil = 0, hitMarkerU
 const raycaster = new THREE.Raycaster();
 const playerId = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2);
 const palette = [0x8db9d9,0xd2a56e,0x9cc8a4,0xc5a1db,0xd58c8c,0xd7d7a0];
-setTimeout(() => { intro.classList.add("hidden"); lobby.classList.remove("hidden"); }, 1700);
+async function runStartupSequence(){
+ const started=performance.now();
+ const progress=$("loadProgress"), percent=$("loadPercent"), status=$("loadStatus");
+ const stages=[
+  ["ゲームシステムを初期化",async()=>{await new Promise(resolve=>requestAnimationFrame(()=>resolve()));}],
+  ["キャラクターデータを確認",async()=>{try{const response=await fetch(characterModelUrl,{cache:"force-cache"});if(response.ok)await response.arrayBuffer();}catch{/* Procedural fallback is available when the optional model is absent. */}}],
+  ["地形テクスチャを準備",async()=>{startupGroundTexture=createGroundTexture();}],
+  ["戦闘モジュールを準備",async()=>{await Promise.resolve();}]
+ ];
+ for(let i=0;i<stages.length;i++){
+  status.textContent=stages[i][0].toUpperCase();
+  try{await stages[i][1]();}catch{/* Continue with built-in fallback assets. */}
+  const value=Math.round(((i+1)/stages.length)*100);
+  progress.style.width=value+"%";percent.textContent=value+"%";
+ }
+ const remaining=Math.max(0,1500-(performance.now()-started));
+ if(remaining)await new Promise(resolve=>setTimeout(resolve,remaining));
+ intro.classList.add("hidden");lobby.classList.remove("hidden");
+}
+runStartupSequence();
 
 $("offlineBtn").addEventListener("click", startOffline);
 $("showOnlineBtn").addEventListener("click", () => {
@@ -141,7 +161,8 @@ function initScene(){
  sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-24;sun.shadow.camera.right=24;
  sun.shadow.camera.top=24;sun.shadow.camera.bottom=-24;sun.shadow.bias=-0.00025;scene.add(sun);
  const mat=(color,roughness=.88)=>new THREE.MeshStandardMaterial({color,roughness,metalness:.08});
- const groundTexture=createGroundTexture();
+ const groundTexture=startupGroundTexture||createGroundTexture();
+ startupGroundTexture=null;
  groundTexture.wrapS=groundTexture.wrapT=THREE.RepeatWrapping;groundTexture.repeat.set(18,18);
  const groundMat=new THREE.MeshStandardMaterial({color:0x66727a,map:groundTexture,roughness:1});
  const floor=new THREE.Mesh(new THREE.BoxGeometry(42,1,42),groundMat);floor.position.y=-.5;floor.receiveShadow=true;scene.add(floor);
