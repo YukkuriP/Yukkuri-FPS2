@@ -2097,7 +2097,6 @@ func _build_city_building(origin: Vector3, width: float, depth: float, height: f
 	var door_width := 1.55
 	var door_height := 2.35
 	var front_z := -depth * 0.5 + wall_thickness * 0.5
-	var back_z := depth * 0.5 - wall_thickness * 0.5
 	# Floor and ceiling create a real interior volume instead of a solid block.
 	building.add_child(_make_box(Vector3(0, 0.0, 0), Vector3(width, 0.22, depth), interior_floor))
 	if not furnished:
@@ -2115,7 +2114,7 @@ func _build_city_building(origin: Vector3, width: float, depth: float, height: f
 		building.add_child(_make_box(Vector3(side * (width * 0.5 - side_pier * 0.5), 1.48, front_z), Vector3(side_pier, 2.96, wall_thickness), wall))
 		building.add_child(_make_box(Vector3(side * window_center_offset, 0.38, front_z), Vector3(window_width + 0.28, 0.76, wall_thickness), wall))
 		building.add_child(_make_box(Vector3(side * window_center_offset, 2.58, front_z), Vector3(window_width + 0.28, 0.76, wall_thickness), wall))
-		building.add_child(_make_box(Vector3(side * (door_width * 0.5 + 0.13), 1.48, front_z), Vector3(0.26, 2.96, wall)))
+		building.add_child(_make_box(Vector3(side * (door_width * 0.5 + 0.13), 1.48, front_z), Vector3(0.26, 2.96, wall_thickness), wall))
 		_add_city_glass_pane(building, Vector3(side * window_center_offset, 1.55, front_z - 0.035), Vector2(window_width, 1.35))
 	# Door frame and hinged, collidable door panel.
 	building.add_child(_make_box(Vector3(-door_width * 0.5 - 0.08, door_height * 0.5, front_z), Vector3(0.16, door_height, 0.2), Color("#4a514f")))
@@ -2140,9 +2139,9 @@ func _build_city_building(origin: Vector3, width: float, depth: float, height: f
 	if furnished:
 		# A second accessible level, staircase, handrails and modest furniture set.
 		building.add_child(_make_box(Vector3(0, 3.72, 0), Vector3(width - 0.7, 0.22, depth - 0.7), Color("#6e6a62")))
-		for step_index in range(9):
-			var step_y: float = 0.28 + float(step_index) * 0.37
-			var step_z: float = -depth * 0.27 + float(step_index) * 0.38
+		for step_index in range(10):
+			var step_y: float = 0.28 + float(step_index) * 0.36
+			var step_z: float = -depth * 0.27 + float(step_index) * 0.32
 			building.add_child(_make_box(Vector3(-width * 0.25, step_y, step_z), Vector3(1.1, 0.2, 0.42), Color("#827c70")))
 		for rail_side in [-1.0, 1.0]:
 			for post_index in range(4):
