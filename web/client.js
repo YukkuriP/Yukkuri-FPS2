@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { addRoadNetwork } from "./streets.js";
 
 const $ = id => document.getElementById(id);
 const intro = $("intro"), lobby = $("lobby"), game = $("game"), statusEl = $("status");
@@ -151,6 +152,7 @@ function initScene(){
  groundTexture.wrapS=groundTexture.wrapT=THREE.RepeatWrapping;groundTexture.repeat.set(18,18);
  const groundMat=new THREE.MeshStandardMaterial({color:0x66727a,map:groundTexture,roughness:1});
  const floor=new THREE.Mesh(new THREE.BoxGeometry(42,1,42),groundMat);floor.position.y=-.5;floor.receiveShadow=true;scene.add(floor);
+ addRoadNetwork(scene, THREE);
  addEnvironmentDetails();
  for(let i=0;i<11;i++){
   const x=-16+i*3.2;
@@ -375,7 +377,7 @@ function addEnvironmentDetails(){
   dummy.position.set(x,height*.36,z);dummy.scale.set(1,height/2,1);dummy.rotation.y=i*1.7;dummy.updateMatrix();trunks.setMatrixAt(i,dummy.matrix);
   const crown=dummy.position.clone();crown.y=height*.82;
   dummy.position.copy(crown);dummy.scale.set(1.05,1.15,1.0);dummy.rotation.set(.12*(i%3),i*.7,.08);dummy.updateMatrix();
-  crowns[i%3].setMatrixAt(i,dummy.matrix);
+  const groupIndex=i%3;const instanceIndex=crownCounts[groupIndex]++;crowns[groupIndex].setMatrixAt(instanceIndex,dummy.matrix);
  }
  trunks.instanceMatrix.needsUpdate=true;trunks.castShadow=true;scene.add(trunks);
  for(let i=0;i<crowns.length;i++){const mesh=crowns[i];mesh.count=crownCounts[i];mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=true;scene.add(mesh);}
