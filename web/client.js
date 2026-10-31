@@ -155,7 +155,7 @@ function initScene(){
  const floor=new THREE.Mesh(new THREE.BoxGeometry(42,1,42),groundMat);floor.position.y=-.5;floor.receiveShadow=true;scene.add(floor);
  addRoadNetwork(scene, THREE);
  addEnvironmentDetails();
- addUrbanDetails(scene);
+ addUrbanDetails(scene, collisionBoxes);
  for(let i=0;i<11;i++){
   const x=-16+i*3.2;
   addBox(x,1,-13,1.35,2,1.35,0x58666e);
