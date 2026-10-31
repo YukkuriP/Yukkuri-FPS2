@@ -1,6 +1,6 @@
 {
   "name": "operation-iron-veil",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Operation: Iron Veil - Windows desktop build",
   "private": true,
   "main": "desktop/main.cjs",
