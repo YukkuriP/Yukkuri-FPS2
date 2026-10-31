@@ -1070,7 +1070,6 @@ func _add_airport_support_facilities(origin: Vector3, y: float) -> void:
 	for x_index in range(20):
 		var fx := fence_min_x + float(x_index) * 10.0
 		for fz in [fence_min_z, fence_max_z]:
-			_add_visual(world, BoxMesh.new(), Vector3(fx, y + 1.15, fz), Color("#777e79"), 0.8)
 			var post := BoxMesh.new()
 			post.size = Vector3(0.16, 2.3, 0.16)
 			_add_visual(world, post, Vector3(fx, y + 1.15, fz), Color("#626b68"), 0.85)
@@ -1080,6 +1079,16 @@ func _add_airport_support_facilities(origin: Vector3, y: float) -> void:
 			var post := BoxMesh.new()
 			post.size = Vector3(0.16, 2.3, 0.16)
 			_add_visual(world, post, Vector3(fx, y + 1.15, fz), Color("#626b68"), 0.85)
+	# Two continuous rails make the perimeter readable from a distance.
+	for rail_y in [y + 0.55, y + 1.75]:
+		var horizontal := BoxMesh.new()
+		horizontal.size = Vector3(190.0, 0.09, 0.09)
+		_add_visual(world, horizontal, Vector3(origin.x + 1.0, rail_y, fence_min_z), Color("#78817d"), 0.8)
+		_add_visual(world, horizontal, Vector3(origin.x + 1.0, rail_y, fence_max_z), Color("#78817d"), 0.8)
+		var vertical := BoxMesh.new()
+		vertical.size = Vector3(0.09, 0.09, 320.0)
+		_add_visual(world, vertical, Vector3(fence_min_x, rail_y, origin.z), Color("#78817d"), 0.8)
+		_add_visual(world, vertical, Vector3(fence_max_x, rail_y, origin.z), Color("#78817d"), 0.8)
 	# Radar dish silhouette near the tower, on a compact equipment plinth.
 	world.add_child(_make_box(Vector3(origin.x + 101.0, y + 1.2, origin.z - 19.0), Vector3(7.0, 2.4, 7.0), Color("#555e5e")))
 	var radar := SphereMesh.new()
