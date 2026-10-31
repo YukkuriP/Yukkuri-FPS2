@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+      - "release/v*"
     tags:
       - "v*"
 
@@ -48,10 +49,10 @@ jobs:
           retention-days: 14
 
       - name: Publish prototype release
-        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') || startsWith(github.ref, 'refs/heads/release/')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}-prototype', steps.app-version.outputs.version) || github.ref_name }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}-prototype', steps.app-version.outputs.version) || startsWith(github.ref, 'refs/heads/release/') && format('v{0}', steps.app-version.outputs.version) || github.ref_name }}
           name: "Operation: Iron Veil v${{ steps.app-version.outputs.version }} Prototype"
           body: |
             Prototype Windows build of Operation: Iron Veil.
