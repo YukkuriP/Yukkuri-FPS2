@@ -137,6 +137,8 @@ function initScene(){
  renderer=new THREE.WebGLRenderer({canvas:$("view"),antialias:true,powerPreference:"high-performance"});
  renderer.shadowMap.enabled=true;
  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+ renderer.toneMapping=THREE.ACESFilmicToneMapping;
+ renderer.toneMappingExposure=1.12;
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));
  renderer.setSize(innerWidth,innerHeight);
  renderer.outputColorSpace=THREE.SRGBColorSpace;
@@ -339,18 +341,76 @@ function createGroundTexture(){
  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;return texture;
 }
 function addEnvironmentDetails(){
- const stripeMat=new THREE.MeshStandardMaterial({color:0x9aa8ad,roughness:.8,metalness:.1});
+ const stripeMat=new THREE.MeshStandardMaterial({color:0x9aa8ad,roughness:.86,metalness:.08});
  for(let z=-10;z<=10;z+=4){
-  const stripe=new THREE.Mesh(new THREE.BoxGeometry(28,.025,.06),stripeMat);stripe.position.set(0,.025,z);stripe.receiveShadow=true;scene.add(stripe);
+  const stripe=new THREE.Mesh(new THREE.BoxGeometry(28,.025,.06),stripeMat);
+  stripe.position.set(0,.025,z);stripe.receiveShadow=true;scene.add(stripe);
  }
- // Low skyline silhouettes make the training yard feel larger without expensive geometry.
- for(let i=0;i<16;i++){
-  const x=-23+i*3.05;const h=3+(i*7%6);
-  const block=new THREE.Mesh(new THREE.BoxGeometry(2.4,h,1.8),new THREE.MeshStandardMaterial({color:i%2?0x303e49:0x3a4852,roughness:1}));
-  block.position.set(x,h/2-0.02,-22);scene.add(block);
-  for(let y=1;y<h-0.4;y+=1.15){
-   const windowMat=new THREE.MeshBasicMaterial({color:(i+y)%3===0?0xc9a46a:0x536b78});
-   const win=new THREE.Mesh(new THREE.PlaneGeometry(.22,.3),windowMat);win.position.set(x-.35,y,-21.08);scene.add(win);
+ // Distant urban silhouettes with varied rooflines and restrained window lighting.
+ const buildingMat=[0x303e49,0x3a4852,0x46515a,0x343f47].map(color=>new THREE.MeshStandardMaterial({color,roughness:.96}));
+ const windowMats=[0x536b78,0x71818a,0xb89b70].map(color=>new THREE.MeshStandardMaterial({color,roughness:.5,metalness:.12,emissive:color,emissiveIntensity:.08}));
+ for(let i=0;i<20;i++){
+  const x=-25+i*2.65,h=3+(i*11%8),w=2.1+(i%3)*.25;
+  const block=new THREE.Mesh(new THREE.BoxGeometry(w,h,1.8),buildingMat[i%buildingMat.length]);
+  block.position.set(x,h/2-.02,-23);block.castShadow=true;block.receiveShadow=true;scene.add(block);
+  const windows=new THREE.InstancedMesh(new THREE.PlaneGeometry(.24,.34),windowMats[i%windowMats.length],Math.max(1,Math.floor(h/1.15))*2);
+  const dummy=new THREE.Object3D();let n=0;
+  for(let y=.9;y<h-.35;y+=1.15)for(const side of [-1,1]){
+   dummy.position.set(x+side*.48,y,-22.075);dummy.rotation.set(0,0,0);dummy.updateMatrix();windows.setMatrixAt(n++,dummy.matrix);
+  }
+  windows.count=n;windows.instanceMatrix.needsUpdate=true;scene.add(windows);
+ }
+ // Instanced vegetation adds a convincing edge-of-town landscape without hundreds of draw calls.
+ const trunkMat=new THREE.MeshStandardMaterial({color:0x514437,roughness:1});
+ const leafMats=[0x344b3d,0x405843,0x526449].map(color=>new THREE.MeshStandardMaterial({color,roughness:1}));
+ const trunkGeo=new THREE.CylinderGeometry(.10,.16,2.0,7);
+ const crownGeo=new THREE.IcosahedronGeometry(1,1);
+ const trunks=new THREE.InstancedMesh(trunkGeo,trunkMat,22);
+ const crowns=leafMats.map(m=>new THREE.InstancedMesh(crownGeo,m,8));
+ const crownCounts=[0,0,0];
+ const dummy=new THREE.Object3D();
+ for(let i=0;i<22;i++){
+  const side=i%2===0?-1:1,z=-18+Math.floor(i/2)*3.45;
+  const x=side*(17.5+(i%3)*1.2),height=2.8+(i%4)*.28;
+  dummy.position.set(x,height*.36,z);dummy.scale.set(1,height/2,1);dummy.rotation.y=i*1.7;dummy.updateMatrix();trunks.setMatrixAt(i,dummy.matrix);
+  const crown=dummy.position.clone();crown.y=height*.82;
+  dummy.position.copy(crown);dummy.scale.set(1.05,1.15,1.0);dummy.rotation.set(.12*(i%3),i*.7,.08);dummy.updateMatrix();
+  crowns[i%3].setMatrixAt(i,dummy.matrix);
+ }
+ trunks.instanceMatrix.needsUpdate=true;trunks.castShadow=true;scene.add(trunks);
+ for(let i=0;i<crowns.length;i++){const mesh=crowns[i];mesh.count=crownCounts[i];mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=true;scene.add(mesh);}
+ // Grass tufts are grouped into a single instanced draw call.
+ const grassGeo=new THREE.ConeGeometry(.055,.34,4);
+ const grassMat=new THREE.MeshStandardMaterial({color:0x52664a,roughness:1});
+ const grass=new THREE.InstancedMesh(grassGeo,grassMat,360);
+ let grassCount=0;let seed=731;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+ for(let i=0;i<360;i++){
+  const x=(rand()-.5)*39,z=(rand()-.5)*39;
+  if(Math.abs(x)<14&&Math.abs(z)<12)continue;
+  dummy.position.set(x,.17,z);dummy.scale.set(.65+rand()*.7,.55+rand()*.8,.65+rand()*.7);
+  dummy.rotation.set((rand()-.5)*.2,rand()*Math.PI,(rand()-.5)*.2);dummy.updateMatrix();grass.setMatrixAt(grassCount++,dummy.matrix);
+ }
+ grass.count=grassCount;grass.instanceMatrix.needsUpdate=true;grass.castShadow=true;scene.add(grass);
+ // Scattered broken masonry and curb stones break up the otherwise clean floor.
+ const rubbleMat=[0x59636a,0x747b7c,0x454f55].map(color=>new THREE.MeshStandardMaterial({color,roughness:1}));
+ for(let i=0;i<28;i++){
+  const x=(rand()-.5)*34,z=(rand()-.5)*34;
+  if(Math.abs(x)<7&&Math.abs(z)<7)continue;
+  const size=.18+rand()*.32;
+  const stone=new THREE.Mesh(new THREE.DodecahedronGeometry(size,0),rubbleMat[i%rubbleMat.length]);
+  stone.position.set(x,size*.38,z);stone.rotation.set(rand(),rand()*Math.PI,rand());stone.scale.set(1,.55+rand()*.5,.8+rand()*.5);
+  stone.castShadow=true;stone.receiveShadow=true;scene.add(stone);
+ }
+ // Roadside barriers and weathered utility details give the training block scale.
+ const barrierMat=new THREE.MeshStandardMaterial({color:0x777b75,roughness:.98});
+ const stripe=new THREE.MeshStandardMaterial({color:0xd2b46d,roughness:.9});
+ for(const z of [-15,15]){
+  for(let i=0;i<5;i++){
+   const x=-12+i*6;
+   const block=new THREE.Mesh(new THREE.BoxGeometry(2.1,.72,.62),barrierMat);
+   block.position.set(x,.36,z);block.castShadow=true;block.receiveShadow=true;scene.add(block);
+   const band=new THREE.Mesh(new THREE.BoxGeometry(.42,.73,.64),stripe);
+   band.position.set(x-.55,.36,z);scene.add(band);
   }
  }
 }
