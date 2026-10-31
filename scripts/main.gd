@@ -495,6 +495,8 @@ func _build_large_map() -> void:
 	_add_city_district(Vector3(-280, 0, -215), 5, 4, 24.0, Color("#8b8174"))
 	_add_urban_road_grid(Vector3(-245, 0, 25), 7, 5, 19.0)
 	_add_urban_road_grid(Vector3(-280, 0, -215), 5, 4, 24.0)
+	_add_city_street_details(Vector3(-245, 0, 25), 7, 5, 19.0)
+	_add_city_street_details(Vector3(-280, 0, -215), 5, 4, 24.0)
 	_add_factory(Vector3(250, 0, -245))
 	_add_airport(Vector3(300, 0, 265))
 	_add_farmland(Vector3(-285, 0, 285))
@@ -2058,3 +2060,48 @@ func _process(delta: float) -> void:
 		target.set_meta("attack_cooldown", cooldown)
 	_update_hud()
 
+
+
+func _add_city_street_details(origin: Vector3, cols: int, rows: int, spacing: float) -> void:
+	# Small, non-interactive visual props keep the city readable at distance.
+	for z_index in range(rows):
+		for x_index in range(cols):
+			var x := origin.x + (float(x_index) - float(cols - 1) * 0.5) * spacing
+			var z := origin.z + (float(z_index) - float(rows - 1) * 0.5) * spacing
+			var y := _terrain_height(x, z)
+			var width := 12.0 + float((x_index + z_index) % 3) * 2.0
+			var depth := width * 0.9
+			var awning := BoxMesh.new()
+			awning.size = Vector3(width * 0.72, 0.16, 0.9)
+			_add_visual(world, awning, Vector3(x, y + 3.05, z - depth * 0.5 - 0.55), Color("#657b78"), 0.8)
+			var glass := BoxMesh.new()
+			glass.size = Vector3(width * 0.46, 1.55, 0.08)
+			_add_visual(world, glass, Vector3(x - width * 0.18, y + 1.5, z - depth * 0.5 - 0.16), Color("#304b55"), 0.3, 0.18)
+	# Street lamps along the outside sidewalk of each district.
+	var lamp_x := origin.x - float(cols - 1) * spacing * 0.5 - spacing * 0.5 - 1.8
+	var z_min := origin.z - float(rows - 1) * spacing * 0.5 - spacing * 0.5
+	for index in range(rows + 1):
+		var z := z_min + float(index) * spacing
+		var y := _terrain_height(lamp_x, z)
+		var pole := BoxMesh.new()
+		pole.size = Vector3(0.16, 5.0, 0.16)
+		_add_visual(world, pole, Vector3(lamp_x, y + 2.5, z), Color("#4b5557"), 0.62, 0.25)
+		var arm := BoxMesh.new()
+		arm.size = Vector3(1.1, 0.12, 0.14)
+		_add_visual(world, arm, Vector3(lamp_x + 0.42, y + 4.9, z), Color("#4b5557"), 0.62, 0.25)
+		var head := BoxMesh.new()
+		head.size = Vector3(0.42, 0.14, 0.26)
+		_add_visual(world, head, Vector3(lamp_x + 0.86, y + 4.85, z), Color("#d5d0b4"), 0.35)
+	# A compact bus shelter on the district edge.
+	var sx := origin.x + float(cols - 1) * spacing * 0.5 + 5.8
+	var sy := _terrain_height(sx, origin.z)
+	for side in [-1.0, 1.0]:
+		var post := BoxMesh.new()
+		post.size = Vector3(0.14, 2.4, 0.14)
+		_add_visual(world, post, Vector3(sx + side * 1.9, sy + 1.2, origin.z), Color("#596467"), 0.55, 0.25)
+	var roof := BoxMesh.new()
+	roof.size = Vector3(4.3, 0.16, 1.9)
+	_add_visual(world, roof, Vector3(sx, sy + 2.45, origin.z), Color("#424e52"), 0.48, 0.15)
+	var bench := BoxMesh.new()
+	bench.size = Vector3(2.2, 0.12, 0.4)
+	_add_visual(world, bench, Vector3(sx, sy + 0.55, origin.z - 0.35), Color("#65594a"), 0.86)
