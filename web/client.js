@@ -377,7 +377,7 @@ function addEnvironmentDetails(){
   dummy.position.set(x,height*.36,z);dummy.scale.set(1,height/2,1);dummy.rotation.y=i*1.7;dummy.updateMatrix();trunks.setMatrixAt(i,dummy.matrix);
   const crown=dummy.position.clone();crown.y=height*.82;
   dummy.position.copy(crown);dummy.scale.set(1.05,1.15,1.0);dummy.rotation.set(.12*(i%3),i*.7,.08);dummy.updateMatrix();
-  crowns[i%3].setMatrixAt(i,dummy.matrix);
+  const groupIndex=i%3;const instanceIndex=crownCounts[groupIndex]++;crowns[groupIndex].setMatrixAt(instanceIndex,dummy.matrix);
  }
  trunks.instanceMatrix.needsUpdate=true;trunks.castShadow=true;scene.add(trunks);
  for(let i=0;i<crowns.length;i++){const mesh=crowns[i];mesh.count=crownCounts[i];mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=true;scene.add(mesh);}
