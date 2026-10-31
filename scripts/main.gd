@@ -967,6 +967,127 @@ func _add_airport(origin: Vector3) -> void:
 		var x: float = origin.x - 72.0 + float(i) * 28.0
 		_add_ground_patch(Vector3(x, y + 0.35, origin.z + 95.0), Vector3(0.4, 0.08, 18), Color("#e0d7a8"))
 
+	# Airport support facilities: hangars, cargo, rescue services, aircraft and airfield details.
+	_add_airport_support_facilities(origin, y)
+
+func _add_airport_support_facilities(origin: Vector3, y: float) -> void:
+	# Taxiway links the runway to the apron and the hangar/cargo side of the field.
+	_add_ground_patch(Vector3(origin.x + 23.0, y + 0.37, origin.z + 7.0), Vector3(30.0, 0.16, 82.0), Color("#555b59"))
+	for i in range(7):
+		var z := origin.z - 26.0 + float(i) * 11.0
+		_add_ground_patch(Vector3(origin.x + 23.0, y + 0.48, z), Vector3(0.22, 0.04, 4.2), Color("#e2d9ae"))
+	# Large maintenance hangar with a recessed segmented door and roof vents.
+	var hangar_x := origin.x - 67.0
+	var hangar_z := origin.z + 93.0
+	world.add_child(_make_box(Vector3(hangar_x, y + 8.0, hangar_z), Vector3(43.0, 16.0, 34.0), Color("#737b79")))
+	world.add_child(_make_box(Vector3(hangar_x, y + 16.25, hangar_z), Vector3(45.0, 0.7, 36.0), Color("#41494b")))
+	world.add_child(_make_box(Vector3(hangar_x, y + 5.0, hangar_z - 17.25), Vector3(35.0, 9.0, 0.35), Color("#343e41")))
+	for i in range(10):
+		var door_x := hangar_x - 16.0 + float(i) * 3.55
+		world.add_child(_make_box(Vector3(door_x, y + 5.0, hangar_z - 17.48), Vector3(0.12, 8.6, 0.12), Color("#929995")))
+	for i in range(4):
+		world.add_child(_make_box(Vector3(hangar_x - 15.0 + float(i) * 10.0, y + 17.0, hangar_z + 4.0), Vector3(4.0, 0.7, 2.0), Color("#596365")))
+	# Cargo warehouse, loading dock and parked freight containers.
+	var cargo_x := origin.x + 75.0
+	var cargo_z := origin.z + 112.0
+	world.add_child(_make_box(Vector3(cargo_x, y + 6.0, cargo_z), Vector3(40.0, 12.0, 28.0), Color("#77786f")))
+	world.add_child(_make_box(Vector3(cargo_x, y + 12.2, cargo_z), Vector3(41.0, 0.55, 29.0), Color("#42494a")))
+	for i in range(3):
+		var dock_x := cargo_x - 12.0 + float(i) * 12.0
+		world.add_child(_make_box(Vector3(dock_x, y + 2.1, cargo_z - 14.3), Vector3(6.0, 4.0, 0.25), Color("#30393b")))
+		world.add_child(_make_box(Vector3(dock_x, y + 0.35, cargo_z - 18.0), Vector3(8.0, 0.7, 7.0), Color("#666c68")))
+	for i in range(4):
+		var container := _make_box(Vector3(cargo_x - 18.0 + float(i) * 10.0, y + 1.35, cargo_z + 22.0), Vector3(8.8, 2.7, 6.0), Color("#596b70") if i % 2 == 0 else Color("#806d55"))
+		world.add_child(container)
+	# Airport fire and rescue station with broad vehicle bays.
+	var fire_x := origin.x - 87.0
+	var fire_z := origin.z - 4.0
+	world.add_child(_make_box(Vector3(fire_x, y + 4.2, fire_z), Vector3(31.0, 8.4, 22.0), Color("#777b76")))
+	world.add_child(_make_box(Vector3(fire_x, y + 8.55, fire_z), Vector3(32.0, 0.5, 23.0), Color("#454b4b")))
+	for i in range(3):
+		var bay_x := fire_x - 10.0 + float(i) * 10.0
+		world.add_child(_make_box(Vector3(bay_x, y + 3.0, fire_z - 11.2), Vector3(8.0, 5.7, 0.25), Color("#30383a")))
+		world.add_child(_make_box(Vector3(bay_x, y + 0.2, fire_z - 12.0), Vector3(9.0, 0.25, 2.0), Color("#d4d0c0")))
+	# A static narrow-body passenger aircraft parked at a stand. It is visual-only.
+	var aircraft := Node3D.new()
+	aircraft.name = "ParkedPassengerAircraft"
+	aircraft.position = Vector3(origin.x + 44.0, y + 0.9, origin.z - 61.0)
+	aircraft.rotation.y = PI * 0.5
+	world.add_child(aircraft)
+	var fuselage := BoxMesh.new()
+	fuselage.size = Vector3(3.0, 2.5, 25.0)
+	_add_visual(aircraft, fuselage, Vector3.ZERO, Color("#d8d9d4"), 0.48, 0.18)
+	var wing := BoxMesh.new()
+	wing.size = Vector3(31.0, 0.42, 4.4)
+	_add_visual(aircraft, wing, Vector3(0.0, -0.15, 0.0), Color("#aeb5b3"), 0.52, 0.16)
+	var tailplane := BoxMesh.new()
+	tailplane.size = Vector3(10.0, 0.3, 2.4)
+	_add_visual(aircraft, tailplane, Vector3(0.0, 1.15, 10.0), Color("#aeb5b3"), 0.5, 0.15)
+	var fin := BoxMesh.new()
+	fin.size = Vector3(0.45, 4.0, 3.5)
+	_add_visual(aircraft, fin, Vector3(0.0, 2.5, 10.5), Color("#536b79"), 0.5, 0.12)
+	for side in [-1.0, 1.0]:
+		var engine := CylinderMesh.new()
+		engine.top_radius = 0.78
+		engine.bottom_radius = 0.78
+		engine.height = 3.1
+		var engine_instance := _add_visual(aircraft, engine, Vector3(side * 7.2, -0.9, 0.2), Color("#454d50"), 0.42, 0.35)
+		engine_instance.rotation_degrees.x = 90.0
+	# Ground-service vehicles and baggage carts beside the aircraft stand.
+	for i in range(3):
+		var vehicle_x := origin.x + 14.0 + float(i) * 12.0
+		var vehicle_z := origin.z - 27.0
+		world.add_child(_make_box(Vector3(vehicle_x, y + 1.0, vehicle_z), Vector3(5.2, 1.8, 3.0), Color("#c5c2ad") if i == 0 else Color("#b8bfc0")))
+		world.add_child(_make_box(Vector3(vehicle_x, y + 2.0, vehicle_z - 0.25), Vector3(2.1, 1.0, 1.8), Color("#34434a")))
+		for wheel_side in [-1.0, 1.0]:
+			var wheel := CylinderMesh.new()
+			wheel.top_radius = 0.42
+			wheel.bottom_radius = 0.42
+			wheel.height = 0.28
+			var wheel_instance := _add_visual(world, wheel, Vector3(vehicle_x + wheel_side * 1.9, y + 0.45, vehicle_z - 1.0), Color("#202426"), 0.9)
+			wheel_instance.rotation_degrees.z = 90.0
+	# Apron floodlights on tall masts, plus low blue taxiway edge lamps.
+	for z_offset in [-105.0, -48.0, 18.0, 78.0]:
+		var lamp_x := origin.x + 91.0
+		var lamp_z := origin.z + z_offset
+		world.add_child(_make_box(Vector3(lamp_x, y + 13.0, lamp_z), Vector3(0.35, 26.0, 0.35), Color("#555d5d")))
+		world.add_child(_make_box(Vector3(lamp_x - 2.0, y + 26.0, lamp_z), Vector3(4.5, 0.35, 0.35), Color("#626a68")))
+	for z_offset in range(-125, 126, 10):
+		for side in [-1.0, 1.0]:
+			var lamp := SphereMesh.new()
+			lamp.radius = 0.22
+			lamp.height = 0.44
+			var light := MeshInstance3D.new()
+			light.mesh = lamp
+			light.position = Vector3(origin.x + side * 13.5, y + 0.55, origin.z + float(z_offset))
+			light.material_override = _make_material(Color("#6a9db5"), 0.35, 0.0, Color("#477d9a"))
+			world.add_child(light)
+	# Perimeter fence with regular posts; deliberately low-detail to keep draw cost modest.
+	var fence_min_x := origin.x - 94.0
+	var fence_max_x := origin.x + 96.0
+	var fence_min_z := origin.z - 160.0
+	var fence_max_z := origin.z + 160.0
+	for x_index in range(20):
+		var fx := fence_min_x + float(x_index) * 10.0
+		for fz in [fence_min_z, fence_max_z]:
+			_add_visual(world, BoxMesh.new(), Vector3(fx, y + 1.15, fz), Color("#777e79"), 0.8)
+			var post := BoxMesh.new()
+			post.size = Vector3(0.16, 2.3, 0.16)
+			_add_visual(world, post, Vector3(fx, y + 1.15, fz), Color("#626b68"), 0.85)
+	for z_index in range(33):
+		var fz := fence_min_z + float(z_index) * 10.0
+		for fx in [fence_min_x, fence_max_x]:
+			var post := BoxMesh.new()
+			post.size = Vector3(0.16, 2.3, 0.16)
+			_add_visual(world, post, Vector3(fx, y + 1.15, fz), Color("#626b68"), 0.85)
+	# Radar dish silhouette near the tower, on a compact equipment plinth.
+	world.add_child(_make_box(Vector3(origin.x + 101.0, y + 1.2, origin.z - 19.0), Vector3(7.0, 2.4, 7.0), Color("#555e5e")))
+	var radar := SphereMesh.new()
+	radar.radius = 3.4
+	radar.height = 1.0
+	var radar_dish := _add_visual(world, radar, Vector3(origin.x + 101.0, y + 4.0, origin.z - 19.0), Color("#a9b2ad"), 0.42, 0.28)
+	radar_dish.scale = Vector3(1.0, 0.22, 1.0)
+
 func _add_farmland(origin: Vector3) -> void:
 	for i in range(5):
 		var x := origin.x + float(i) * 25.0
