@@ -366,7 +366,8 @@ function addEnvironmentDetails(){
  const trunkGeo=new THREE.CylinderGeometry(.10,.16,2.0,7);
  const crownGeo=new THREE.IcosahedronGeometry(1,1);
  const trunks=new THREE.InstancedMesh(trunkGeo,trunkMat,22);
- const crowns=leafMats.map(m=>new THREE.InstancedMesh(crownGeo,m,22));
+ const crowns=leafMats.map(m=>new THREE.InstancedMesh(crownGeo,m,8));
+ const crownCounts=[0,0,0];
  const dummy=new THREE.Object3D();
  for(let i=0;i<22;i++){
   const side=i%2===0?-1:1,z=-18+Math.floor(i/2)*3.45;
@@ -377,7 +378,7 @@ function addEnvironmentDetails(){
   crowns[i%3].setMatrixAt(i,dummy.matrix);
  }
  trunks.instanceMatrix.needsUpdate=true;trunks.castShadow=true;scene.add(trunks);
- for(const mesh of crowns){mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=true;scene.add(mesh);}
+ for(let i=0;i<crowns.length;i++){const mesh=crowns[i];mesh.count=crownCounts[i];mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=true;scene.add(mesh);}
  // Grass tufts are grouped into a single instanced draw call.
  const grassGeo=new THREE.ConeGeometry(.055,.34,4);
  const grassMat=new THREE.MeshStandardMaterial({color:0x52664a,roughness:1});
