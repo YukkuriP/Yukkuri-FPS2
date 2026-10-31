@@ -1,0 +1,69 @@
+name: Build Windows App
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Read app version
+        id: app-version
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build portable EXE and installer
+        run: npm run dist:win -- --publish never
+
+      - name: Upload Windows build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Operation-Iron-Veil-Windows-${{ steps.app-version.outputs.version }}
+          path: |
+            release/Operation-Iron-Veil-Portable-${{ steps.app-version.outputs.version }}.exe
+            release/Operation-Iron-Veil-Setup-${{ steps.app-version.outputs.version }}.exe
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish prototype release
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}-prototype', steps.app-version.outputs.version) || github.ref_name }}
+          name: "Operation: Iron Veil v${{ steps.app-version.outputs.version }} Prototype"
+          body: |
+            Prototype Windows build of Operation: Iron Veil.
+
+            Downloads:
+            - Portable EXE: run without installation.
+            - Setup EXE: install the game and create shortcuts.
+
+            This is an early prototype. Test the generated files before distributing them.
+            Online play requires a reachable WebSocket server. The browser client loads Three.js from a CDN, so an internet connection is required.
+          prerelease: true
+          make_latest: false
+          files: |
+            release/Operation-Iron-Veil-Portable-${{ steps.app-version.outputs.version }}.exe
+            release/Operation-Iron-Veil-Setup-${{ steps.app-version.outputs.version }}.exe
+          fail_on_unmatched_files: true
