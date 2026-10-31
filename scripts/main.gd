@@ -1962,11 +1962,11 @@ func _fire_weapon() -> void:
 		_spawn_tracer(weapon_root.to_global(Vector3(0, 0.006, -0.99)), tracer_end)
 	if not result.is_empty():
 		var collider := result.get("collider") as Node
+		var hit_position: Vector3 = result.get("position", to)
 		if collider is Node and collider.is_in_group("city_breakable_glass"):
-			_break_city_glass(collider as Node3D, hit_position, result.get("normal", Vector3.FORWARD) as Vector3)
+			_break_city_glass(collider as Node3D, hit_position, result.get("normal", Vector3.FORWARD))
 		elif collider is Node and collider.is_in_group("training_target"):
 			var target_root := collider.get_meta("root_target") as Node3D
-			var hit_position: Vector3 = result.get("position", to)
 			var headshot := hit_position.y - target_root.global_position.y > 1.55
 			var damage := 100 if headshot else 34
 			var target_health: int = int(collider.get_meta("health")) - damage
@@ -2114,8 +2114,8 @@ func _build_city_building(origin: Vector3, width: float, depth: float, height: f
 		building.add_child(_make_box(Vector3(side * (width * 0.5 - side_pier * 0.5), 1.48, front_z), Vector3(side_pier, 2.96, wall_thickness), wall))
 		building.add_child(_make_box(Vector3(side * window_center_offset, 0.38, front_z), Vector3(window_width + 0.28, 0.76, wall_thickness), wall))
 		building.add_child(_make_box(Vector3(side * window_center_offset, 2.58, front_z), Vector3(window_width + 0.28, 0.76, wall_thickness), wall))
-		building.add_child(_make_box(Vector3(side * (door_width * 0.5 + 0.13), 1.48, front_z), Vector3(0.26, 2.96, wall),))
-		_add_city_glass_pane(building, Vector3(side * window_center_offset, 1.62, front_z - 0.035), Vector2(window_width, 1.48))
+		building.add_child(_make_box(Vector3(side * (door_width * 0.5 + 0.13), 1.48, front_z), Vector3(0.26, 2.96, wall)))
+		_add_city_glass_pane(building, Vector3(side * window_center_offset, 1.55, front_z - 0.035), Vector2(window_width, 1.35))
 	# Door frame and hinged, collidable door panel.
 	building.add_child(_make_box(Vector3(-door_width * 0.5 - 0.08, door_height * 0.5, front_z), Vector3(0.16, door_height, 0.2), Color("#4a514f")))
 	building.add_child(_make_box(Vector3(door_width * 0.5 + 0.08, door_height * 0.5, front_z), Vector3(0.16, door_height, 0.2), Color("#4a514f")))
