@@ -1,7 +1,7 @@
 {
   "name": "operation-iron-veil",
-  "version": "0.1.0",
-  "description": "Operation: Iron Veil - Windows desktop build",
+  "version": "0.2.0",
+  "description": "Operation: Iron Veil - Windows desktop prototype",
   "private": true,
   "main": "desktop/main.cjs",
   "author": "YukkuriP",
