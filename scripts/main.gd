@@ -1054,7 +1054,7 @@ func _add_airport_support_facilities(origin: Vector3, y: float) -> void:
 	# Apron floodlights on tall masts, plus low blue taxiway edge lamps.
 	for z_offset in [-105.0, -48.0, 18.0, 78.0]:
 		var lamp_x := origin.x + 91.0
-		var lamp_z := origin.z + z_offset
+		var lamp_z: float = origin.z + z_offset
 		world.add_child(_make_box(Vector3(lamp_x, y + 13.0, lamp_z), Vector3(0.35, 26.0, 0.35), Color("#555d5d")))
 		world.add_child(_make_box(Vector3(lamp_x - 2.0, y + 26.0, lamp_z), Vector3(4.5, 0.35, 0.35), Color("#626a68")))
 	for z_offset in range(-125, 126, 10):
@@ -1149,7 +1149,7 @@ func _add_airport_support_facilities(origin: Vector3, y: float) -> void:
 	# Approach-light bars beyond both runway thresholds, kept outside the paved surface.
 	for end_side in [-1.0, 1.0]:
 		for light_row in range(5):
-			var light_z := origin.z + end_side * (143.0 + float(light_row) * 5.0)
+			var light_z: float = origin.z + end_side * (143.0 + float(light_row) * 5.0)
 			for light_col in range(3):
 				var light_x := origin.x - 3.0 + float(light_col) * 3.0
 				var approach_lamp := SphereMesh.new()
@@ -1206,7 +1206,7 @@ func _add_airport_terminal_detailing(origin: Vector3, y: float) -> void:
 		world.add_child(_make_box(Vector3(cx, y + 1.72, cz), Vector3(2.2, 0.55, 1.65), Color("#26373d")))
 	# Runway PAPI-style visual approach indicators beside the threshold.
 	for end_side in [-1.0, 1.0]:
-		var papi_z := origin.z + end_side * 136.0
+		var papi_z: float = origin.z + end_side * 136.0
 		for lamp_index in range(4):
 			var px := origin.x + 16.0 + float(lamp_index) * 1.2
 			world.add_child(_make_box(Vector3(px, y + 0.8, papi_z), Vector3(0.8, 0.55, 0.55), Color("#e6e0cb")))
@@ -1872,7 +1872,7 @@ func _physics_process(delta: float) -> void:
 	var sprinting := Input.is_key_pressed(KEY_SHIFT)
 	if flight_mode:
 		# Flight follows the camera's full direction and ignores terrain/building collision.
-		var fly_direction := (-camera.global_transform.basis.z * input_dir.y) + (camera.global_transform.basis.x * input_dir.x)
+		var fly_direction := (-camera.global_transform.basis.z * -input_dir.y) + (camera.global_transform.basis.x * input_dir.x)
 		if Input.is_key_pressed(KEY_SPACE):
 			fly_direction += Vector3.UP
 		if Input.is_key_pressed(KEY_CTRL):
