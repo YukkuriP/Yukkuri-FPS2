@@ -53,6 +53,7 @@ var move_bob := 0.0
 var previous_player_position := Vector3.ZERO
 var flight_mode := false
 var player_collision: CollisionShape3D
+var interaction_prompt: Label
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -838,8 +839,7 @@ func _add_city_district(origin: Vector3, cols: int, rows: int, spacing: float, b
 			var w := 12.0 + float((x_index + z_index) % 3) * 2.0
 			var depth: float = w * (0.82 if (x_index + z_index) % 2 == 0 else 1.0)
 			var color := base_color.darkened(float((x_index + z_index) % 4) * 0.045)
-			var building := _make_box(Vector3(x, ground_y + h * 0.5, z), Vector3(w, h, depth), color, 0.9)
-			world.add_child(building)
+			_build_city_building(Vector3(x, ground_y, z), w, depth, h, color, ((x_index * 3 + z_index * 5) % 5) == 0)
 			# Four-sided window grids with separate frames, not a single flat window strip.
 			var floor_count: int = int(h / 4.0)
 			for floor_index in range(1, floor_count):
@@ -1726,8 +1726,18 @@ func _add_training_overlay() -> void:
 	damage_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	damage_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root_ui.add_child(damage_overlay)
+	interaction_prompt = Label.new()
+	interaction_prompt.text = ""
+	interaction_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	interaction_prompt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	interaction_prompt.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	interaction_prompt.position = Vector2(-190, -118)
+	interaction_prompt.size = Vector2(380, 34)
+	interaction_prompt.add_theme_font_size_override("font_size", 18)
+	interaction_prompt.add_theme_color_override("font_color", Color("#f3e6bd"))
+	root_ui.add_child(interaction_prompt)
 	var controls := Label.new()
-	controls.text = "WASD MOVE    F FLIGHT    SPACE UP    CTRL DOWN    SHIFT BOOST    ESC MENU"
+	controls.text = "WASD MOVE    E INTERACT    F FLIGHT    SPACE UP    CTRL DOWN    SHIFT BOOST    ESC MENU"
 	controls.position = Vector2(22, 674)
 	controls.size = Vector2(900, 24)
 	controls.add_theme_font_size_override("font_size", 12)
@@ -1794,6 +1804,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				_show_pause_menu()
 		elif event.keycode == KEY_R:
 			_start_reload()
+		elif event.keycode == KEY_E:
+			_interact_with_look_target()
 		elif event.keycode == KEY_ENTER and (mission_complete or mission_failed):
 			_start_training()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -1869,6 +1881,7 @@ func _physics_process(delta: float) -> void:
 			reserve_ammo -= loaded
 			reloading = false
 	_update_hud()
+	_update_interaction_prompt()
 	# Map-first development build: exploration is untimed so players can inspect the full map.
 	_update_hud()
 	# Physical-key fallback keeps movement usable even if project input mappings differ.
@@ -1949,7 +1962,9 @@ func _fire_weapon() -> void:
 		_spawn_tracer(weapon_root.to_global(Vector3(0, 0.006, -0.99)), tracer_end)
 	if not result.is_empty():
 		var collider := result.get("collider") as Node
-		if collider is Node and collider.is_in_group("training_target"):
+		if collider is Node and collider.is_in_group("city_breakable_glass"):
+			_break_city_glass(collider as Node3D, hit_position, result.get("normal", Vector3.FORWARD) as Vector3)
+		elif collider is Node and collider.is_in_group("training_target"):
 			var target_root := collider.get_meta("root_target") as Node3D
 			var hit_position: Vector3 = result.get("position", to)
 			var headshot := hit_position.y - target_root.global_position.y > 1.55
@@ -2069,6 +2084,204 @@ func _process(delta: float) -> void:
 	_update_hud()
 
 
+
+func _build_city_building(origin: Vector3, width: float, depth: float, height: float, wall_color: Color, furnished: bool) -> void:
+	# Walk-in building shell: real wall collision, an actual doorway, and a breakable ground-floor glazing.
+	var building := Node3D.new()
+	building.position = origin
+	building.name = "CityBuilding"
+	world.add_child(building)
+	var wall := Color("#777b78") if wall_color.get_luminance() > 0.45 else wall_color
+	var interior_floor := Color("#77736a")
+	var wall_thickness := 0.34
+	var door_width := 1.55
+	var door_height := 2.35
+	var front_z := -depth * 0.5 + wall_thickness * 0.5
+	var back_z := depth * 0.5 - wall_thickness * 0.5
+	# Floor and ceiling create a real interior volume instead of a solid block.
+	building.add_child(_make_box(Vector3(0, 0.0, 0), Vector3(width, 0.22, depth), interior_floor))
+	building.add_child(_make_box(Vector3(0, 3.55, 0), Vector3(width - 0.25, 0.22, depth - 0.25), wall.darkened(0.16)))
+	building.add_child(_make_box(Vector3(0, height - 0.18, 0), Vector3(width, 0.36, depth), wall.darkened(0.2)))
+	# Exterior side and rear walls.
+	building.add_child(_make_box(Vector3(-width * 0.5 + wall_thickness * 0.5, height * 0.5, 0), Vector3(wall_thickness, height, depth), wall))
+	building.add_child(_make_box(Vector3(width * 0.5 - wall_thickness * 0.5, height * 0.5, 0), Vector3(wall_thickness, height, depth), wall))
+	building.add_child(_make_box(Vector3(0, height * 0.5, back_z), Vector3(width, height, wall_thickness), wall))
+	# Front facade has two glazed shop windows and a central door opening.
+	var side_pier := 0.42
+	var window_width := maxf(1.4, (width - door_width) * 0.5 - side_pier - 0.28)
+	var window_center_offset := door_width * 0.5 + 0.28 + window_width * 0.5
+	for side in [-1.0, 1.0]:
+		building.add_child(_make_box(Vector3(side * (width * 0.5 - side_pier * 0.5), 1.48, front_z), Vector3(side_pier, 2.96, wall_thickness), wall))
+		building.add_child(_make_box(Vector3(side * window_center_offset, 0.38, front_z), Vector3(window_width + 0.28, 0.76, wall_thickness), wall))
+		building.add_child(_make_box(Vector3(side * window_center_offset, 2.58, front_z), Vector3(window_width + 0.28, 0.76, wall_thickness), wall))
+		building.add_child(_make_box(Vector3(side * (door_width * 0.5 + 0.13), 1.48, front_z), Vector3(0.26, 2.96, wall),))
+		_add_city_glass_pane(building, Vector3(side * window_center_offset, 1.62, front_z - 0.035), Vector2(window_width, 1.48))
+	# Door frame and hinged, collidable door panel.
+	building.add_child(_make_box(Vector3(-door_width * 0.5 - 0.08, door_height * 0.5, front_z), Vector3(0.16, door_height, 0.2), Color("#4a514f")))
+	building.add_child(_make_box(Vector3(door_width * 0.5 + 0.08, door_height * 0.5, front_z), Vector3(0.16, door_height, 0.2), Color("#4a514f")))
+	building.add_child(_make_box(Vector3(0, door_height + 0.12, front_z), Vector3(door_width + 0.32, 0.24, 0.2), Color("#4a514f")))
+	var hinge := Node3D.new()
+	hinge.position = Vector3(-door_width * 0.5, 0, front_z)
+	hinge.name = "InteractiveDoorHinge"
+	building.add_child(hinge)
+	var door_body := _make_box(Vector3(door_width * 0.5, door_height * 0.5, 0), Vector3(door_width, door_height, 0.12), Color("#4b514e"))
+	door_body.name = "InteractiveDoor"
+	door_body.add_to_group("city_door")
+	door_body.set_meta("door_hinge", hinge)
+	door_body.set_meta("door_open", false)
+	hinge.add_child(door_body)
+	# Door hardware and a narrow vision slit.
+	_add_visual(door_body, _make_box_mesh(Vector3(0.035, 0.18, 0.035)), Vector3(door_width * 0.37, 0, -0.075), Color("#c3b58a"), 0.32, 0.65)
+	_add_visual(building, _make_box_mesh(Vector3(0.12, 0.5, 0.025)), Vector3(0, 1.55, front_z - 0.11), Color("#263a43"), 0.28, 0.15)
+	# Interior partition, reception counter and room dressing.
+	building.add_child(_make_box(Vector3(-width * 0.18, 1.45, depth * 0.18), Vector3(0.18, 2.9, depth * 0.42), wall.lightened(0.08)))
+	building.add_child(_make_box(Vector3(width * 0.08, 0.55, depth * 0.2), Vector3(width * 0.42, 1.1, 0.65), Color("#62584b")))
+	if furnished:
+		# A second accessible level, staircase, handrails and modest furniture set.
+		building.add_child(_make_box(Vector3(0, 3.72, 0), Vector3(width - 0.7, 0.22, depth - 0.7), Color("#6e6a62")))
+		for step_index in range(9):
+			var step_y: float = 0.28 + float(step_index) * 0.37
+			var step_z: float = -depth * 0.27 + float(step_index) * 0.38
+			building.add_child(_make_box(Vector3(-width * 0.25, step_y, step_z), Vector3(1.1, 0.2, 0.42), Color("#827c70")))
+		for rail_side in [-1.0, 1.0]:
+			for post_index in range(4):
+				var post_z: float = -depth * 0.25 + float(post_index) * 1.05
+				var post_y: float = 0.9 + float(post_index) * 0.72
+				building.add_child(_make_box(Vector3(-width * 0.25 + rail_side * 0.68, post_y, post_z), Vector3(0.07, 0.95, 0.07), Color("#424c4d")))
+			var handrail := _make_box(Vector3(-width * 0.25 + rail_side * 0.68, 2.0, -depth * 0.25 + 1.65), Vector3(0.08, 0.08, 3.8), Color("#596365"))
+			handrail.rotation.x = -0.48
+			building.add_child(handrail)
+		# Ground-floor sofa, table, chairs and storage.
+		building.add_child(_make_box(Vector3(width * 0.22, 0.42, -depth * 0.16), Vector3(2.2, 0.72, 0.85), Color("#53645e")))
+		building.add_child(_make_box(Vector3(width * 0.22, 0.86, -depth * 0.16), Vector3(2.2, 0.16, 0.85), Color("#66776e")))
+		building.add_child(_make_box(Vector3(width * 0.12, 0.48, depth * 0.02), Vector3(1.35, 0.12, 0.8), Color("#806b54")))
+		building.add_child(_make_box(Vector3(width * 0.12, 0.23, depth * 0.02), Vector3(0.12, 0.46, 0.12), Color("#54483c")))
+		building.add_child(_make_box(Vector3(width * 0.12, 0.23, depth * 0.02 + 0.62), Vector3(0.12, 0.46, 0.12), Color("#54483c")))
+		building.add_child(_make_box(Vector3(-width * 0.28, 0.95, depth * 0.24), Vector3(0.85, 1.9, 0.42), Color("#554f48")))
+		# Ceiling lights use no shadows to keep the 8 GB target practical.
+		for light_y in [3.2, 6.95]:
+			var room_light := OmniLight3D.new()
+			room_light.position = Vector3(0, light_y, 0)
+			room_light.light_color = Color("#ffe5bd")
+			room_light.light_energy = 0.65
+			room_light.omni_range = 7.0
+			room_light.shadow_enabled = false
+			building.add_child(room_light)
+	else:
+		var room_light := OmniLight3D.new()
+		room_light.position = Vector3(0, 2.95, 0)
+		room_light.light_color = Color("#ffe5bd")
+		room_light.light_energy = 0.38
+		room_light.omni_range = 5.5
+		room_light.shadow_enabled = false
+		building.add_child(room_light)
+
+func _make_box_mesh(size: Vector3) -> BoxMesh:
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	return mesh
+
+func _add_city_glass_pane(parent: Node3D, local_position: Vector3, pane_size: Vector2) -> void:
+	var pane := StaticBody3D.new()
+	pane.position = local_position
+	pane.name = "BreakableCityGlass"
+	pane.add_to_group("city_breakable_glass")
+	var mesh_instance := MeshInstance3D.new()
+	var pane_mesh := BoxMesh.new()
+	pane_mesh.size = Vector3(pane_size.x, pane_size.y, 0.055)
+	mesh_instance.mesh = pane_mesh
+	var glass_material := StandardMaterial3D.new()
+	glass_material.albedo_color = Color(0.32, 0.58, 0.66, 0.48)
+	glass_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glass_material.metallic = 0.18
+	glass_material.roughness = 0.12
+	glass_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mesh_instance.material_override = glass_material
+	pane.add_child(mesh_instance)
+	var collision := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(pane_size.x, pane_size.y, 0.055)
+	collision.shape = shape
+	pane.add_child(collision)
+	parent.add_child(pane)
+
+func _break_city_glass(glass: Node3D, hit_position: Vector3, hit_normal: Vector3) -> void:
+	if not is_instance_valid(glass):
+		return
+	var particles := GPUParticles3D.new()
+	particles.name = "GlassShatterParticles"
+	particles.amount = 22
+	particles.lifetime = 0.72
+	particles.one_shot = true
+	particles.explosiveness = 0.96
+	var shard_mesh := QuadMesh.new()
+	shard_mesh.size = Vector2(0.11, 0.11)
+	var shard_material := StandardMaterial3D.new()
+	shard_material.albedo_color = Color(0.56, 0.78, 0.82, 0.7)
+	shard_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	shard_material.metallic = 0.25
+	shard_material.roughness = 0.08
+	shard_mesh.material = shard_material
+	particles.draw_pass_1 = shard_mesh
+	var process_material := ParticleProcessMaterial.new()
+	process_material.direction = hit_normal.normalized()
+	process_material.spread = 72.0
+	process_material.initial_velocity_min = 1.4
+	process_material.initial_velocity_max = 4.2
+	process_material.gravity = Vector3(0, -9.8, 0)
+	process_material.scale_min = 0.45
+	process_material.scale_max = 1.0
+	particles.process_material = process_material
+	world.add_child(particles)
+	particles.global_position = hit_position
+	particles.emitting = true
+	get_tree().create_timer(1.4).timeout.connect(particles.queue_free)
+	glass.queue_free()
+
+func _interact_with_look_target() -> void:
+	if not is_instance_valid(camera) or flight_mode:
+		return
+	var from := camera.global_position
+	var to := from + (-camera.global_transform.basis.z * 3.2)
+	var query := PhysicsRayQueryParameters3D.create(from, to)
+	query.exclude = [player]
+	var result := player.get_world_3d().direct_space_state.intersect_ray(query)
+	if result.is_empty():
+		return
+	var collider := result.get("collider") as Node
+	if not is_instance_valid(collider) or not collider.is_in_group("city_door"):
+		return
+	var hinge := collider.get_meta("door_hinge") as Node3D
+	if not is_instance_valid(hinge):
+		return
+	var is_open: bool = bool(collider.get_meta("door_open", false))
+	var target_angle: float = 0.0 if is_open else -1.35
+	collider.set_meta("door_open", not is_open)
+	var tween := create_tween()
+	tween.set_trans(Tween.TRANS_CUBIC)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.tween_property(hinge, "rotation:y", target_angle, 0.34)
+
+func _update_interaction_prompt() -> void:
+	if not is_instance_valid(interaction_prompt) or not is_instance_valid(camera):
+		return
+	if flight_mode or not mouse_captured:
+		interaction_prompt.text = ""
+		return
+	var from := camera.global_position
+	var to := from + (-camera.global_transform.basis.z * 3.2)
+	var query := PhysicsRayQueryParameters3D.create(from, to)
+	query.exclude = [player]
+	var result := player.get_world_3d().direct_space_state.intersect_ray(query)
+	if result.is_empty():
+		interaction_prompt.text = ""
+		return
+	var collider := result.get("collider") as Node
+	if is_instance_valid(collider) and collider.is_in_group("city_door"):
+		var is_open: bool = bool(collider.get_meta("door_open", false))
+		interaction_prompt.text = "E  ドアを閉める" if is_open else "E  ドアを開ける"
+	else:
+		interaction_prompt.text = ""
 
 func _add_city_street_details(origin: Vector3, cols: int, rows: int, spacing: float) -> void:
 	# Small, non-interactive visual props keep the city readable at distance.
