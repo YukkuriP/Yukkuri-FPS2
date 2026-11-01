@@ -1,34 +1,36 @@
 # Operation: Iron Veil — Windows builds
 
-The browser edition can be packaged as a portable Windows executable and an installer using Electron and electron-builder.
+The main Windows game is exported directly from the Godot project. It is not an Electron wrapper around the browser prototype.
 
-## Build on Windows
+## Build locally
 
-1. Install Node.js 22 LTS.
-2. Download or clone this repository.
-3. Open a terminal in the repository root.
-4. Run:
+1. Install Godot 4.4.1 or later.
+2. Install the matching Godot export templates.
+3. Open the repository root in Godot.
+4. Select **Project → Export** and choose **Windows Desktop**.
+5. Export to `release/Operation-Iron-Veil.exe`.
 
-```powershell
-npm install
-npm run dist:win
-```
-
-The x64 outputs are written to `release/`:
-- `Operation-Iron-Veil-Portable-0.2.0.exe` — portable executable.
-- `Operation-Iron-Veil-Setup-0.2.0.exe` — installer with optional install directory and shortcuts.
-
-The filenames are generated from the version in `package.json`; update that version before making a new release.
+The preset enables an embedded PCK. The portable game is intended to be one standalone EXE.
 
 ## Build with GitHub Actions
 
-Open the repository's **Actions** tab, choose **Build Windows App**, and select **Run workflow**. The run creates a downloadable artifact named `Operation-Iron-Veil-Windows-0.2.0`. A version tag such as `v0.2.0` also triggers a build and prerelease.
+The **Build Windows App** workflow:
+- Installs Godot 4.4.1 and matching export templates.
+- Imports and validates the project.
+- Exports the Windows x64 game with embedded project resources.
+- Builds an installer containing that same standalone EXE.
+- Uploads both files as a workflow artifact.
+- Publishes a stable GitHub release for a version tag.
 
-## Important notes
+## Outputs
 
-- These are Windows x64 packages. The workflow uploads the build artifact and publishes a prerelease for manual runs and version tags.
-- The package contains the browser edition; it does not package the Godot prototype.
-- Three.js is loaded from jsDelivr using an import map, so internet access is required.
-- Online play requires a separately hosted WebSocket server with TLS. Packaging the client does not host the server.
-- These are unsigned development builds. Windows SmartScreen may show a warning because the executable is not code-signed.
-- Test generated files on target Windows devices before distributing them.
+- `Operation-Iron-Veil.exe` — portable standalone game.
+- `Operation-Iron-Veil-Setup-<version>.exe` — installer.
+
+## Notes
+
+- Windows x64 only.
+- The Godot main game is offline-capable and does not need the browser WebSocket server.
+- Windows may show a SmartScreen warning because the executable is not code-signed.
+- The separate `web/` browser prototype is not the 1 km Godot game.
+- Build success does not replace real-device playtesting. Check the game on target Windows PCs before distributing it.

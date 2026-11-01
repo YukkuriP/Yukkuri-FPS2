@@ -149,7 +149,7 @@ func _show_lobby() -> void:
 	welcome.add_theme_color_override("font_color", TEXT)
 	root_ui.add_child(welcome)
 	var description := Label.new()
-	description.text = "1km × 1kmの戦闘区域を自由に探索。\nまずはマップを完成させる開発ビルドです。敵AIはまだ実装していません。"
+	description.text = "1km × 1kmの戦闘区域を自由に探索。\n山岳・森林・市街地・工場・空港・農地を巡り、敵兵との遭遇に備えよう。"
 	description.position = Vector2(52, 222)
 	description.size = Vector2(690, 62)
 	description.add_theme_font_size_override("font_size", 16)
@@ -174,7 +174,7 @@ func _show_lobby() -> void:
 	panel_title.add_theme_color_override("font_color", ACCENT)
 	root_ui.add_child(panel_title)
 	var briefing := Label.new()
-	briefing.text = "01  /  MAP\n      1 km × 1 km exploration area\n\n02  /  TERRAIN\n      Mountain, tunnel, highway and town\n\n03  /  CURRENT PHASE\n      Map construction and traversal\n\n04  /  NEXT\n      Map polish, then AI"
+	briefing.text = "01  /  AREA\n      1 km × 1 km open battlefield\n\n02  /  TERRAIN\n      Mountains, forests, tunnels, highway\n      Towns, factory, airport and farmland\n\n03  /  HOSTILES\n      Human patrol units with detection\n\n04  /  MODE\n      Offline free-roam operation"
 	briefing.position = Vector2(820, 230)
 	briefing.size = Vector2(330, 230)
 	briefing.add_theme_font_size_override("font_size", 15)
@@ -360,7 +360,7 @@ func _build_training_world() -> void:
 	look_pitch = 0.0
 	previous_player_position = player.position
 	_build_weapon()
-	# Keep the map AI-free, but retain static targets for testing the weapon and hit detection.
+	# Spawn hostile human patrol units in the northern sector.
 	_spawn_training_targets()
 
 
@@ -1585,11 +1585,22 @@ func _add_weapon_cylinder(pos: Vector3, radius: float, height: float, color: Col
 	weapon_root.add_child(instance)
 
 func _spawn_training_targets() -> void:
-	var positions := [Vector3(-34, 0, 385), Vector3(-10, 0, 390), Vector3(14, 0, 382), Vector3(36, 0, 400), Vector3(-28, 0, 445), Vector3(8, 0, 448), Vector3(31, 0, 430), Vector3(0, 0, 365)]
+	# Hostile patrols begin around the northern base and nearby approach routes.
+	var positions := [
+		Vector3(-34, 0, -420), Vector3(-12, 0, -432),
+		Vector3(14, 0, -418), Vector3(36, 0, -438),
+		Vector3(-28, 0, -385), Vector3(8, 0, -392),
+		Vector3(31, 0, -378), Vector3(0, 0, -455)
+	]
 	for i in range(positions.size()):
 		var target := _make_soldier_target(i + 1)
 		target.position = positions[i]
 		target.position.y = _terrain_height(target.position.x, target.position.z) + 0.35
+		target.set_meta("patrol_origin", target.position)
+		target.set_meta("patrol_phase", float(i) * TAU / float(positions.size()))
+		target.set_meta("ai_state", "patrol")
+		target.set_meta("last_seen_position", target.position)
+		target.set_meta("lost_sight_time", 0.0)
 		world.add_child(target)
 		target_nodes.append(target)
 
@@ -1671,7 +1682,7 @@ func _add_training_overlay() -> void:
 	hud_label.add_theme_color_override("font_color", TEXT)
 	root_ui.add_child(hud_label)
 	status_label = Label.new()
-	status_label.text = "FREE ROAM  •  MAP DEVELOPMENT PHASE"
+	status_label.text = "FREE ROAM  •  HOSTILE PATROLS ACTIVE"
 	status_label.position = Vector2(640, 14)
 	status_label.size = Vector2(620, 28)
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -1760,7 +1771,7 @@ func _update_hud() -> void:
 			status_label.text = "FLIGHT MODE  •  SPACE UP / CTRL DOWN / SHIFT BOOST"
 			status_label.add_theme_color_override("font_color", ACCENT)
 		else:
-			status_label.text = "MAP FREE ROAM  •  NO AI / NO MISSION TIMER"
+			status_label.text = "OPEN BATTLEFIELD  •  HOSTILE PATROLS ACTIVE"
 			status_label.add_theme_color_override("font_color", ACCENT)
 	if is_instance_valid(score_label):
 		score_label.text = "SCORE  %07d   •   STREAK x%d   •   BEST x%d" % [score, kill_streak, best_streak]
@@ -2057,30 +2068,81 @@ func _process(delta: float) -> void:
 		damage_overlay.modulate.a = clampf(damage_flash_left * 0.6, 0.0, 0.28)
 	if mission_complete or mission_failed:
 		return
-	# AI is intentionally disabled during the map-first development phase.
-	# Re-enable and implement target behavior only after the map and traversal are polished.
-	for i in range(0):
+	_update_enemy_ai(delta)
+	_update_hud()
+
+
+func _enemy_can_see_player(target: Node3D) -> bool:
+	if not is_instance_valid(player) or not is_instance_valid(target):
+		return false
+	var origin := target.global_position + Vector3(0, 1.45, 0)
+	var destination := player.global_position + Vector3(0, 1.45, 0)
+	var query := PhysicsRayQueryParameters3D.create(origin, destination)
+	var excluded: Array[RID] = []
+	var hit_body := target.get_node_or_null("HitBody") as StaticBody3D
+	if is_instance_valid(hit_body):
+		excluded.append(hit_body.get_rid())
+	if is_instance_valid(player_collision):
+		excluded.append(player_collision.get_rid())
+	query.exclude = excluded
+	var result := player.get_world_3d().direct_space_state.intersect_ray(query)
+	return result.is_empty() or result.get("collider") == player
+
+func _update_enemy_ai(delta: float) -> void:
+	# Lightweight patrol / alert / pursuit states keep the large world responsive.
+	for i in range(target_nodes.size() - 1, -1, -1):
 		var target := target_nodes[i]
 		if not is_instance_valid(target):
+			target_nodes.remove_at(i)
 			continue
-		var target_body := target.get_node_or_null("HitBody") as StaticBody3D
-		if not is_instance_valid(target_body):
+		var hit_body := target.get_node_or_null("HitBody") as StaticBody3D
+		if not is_instance_valid(hit_body):
 			continue
 		var to_player: Vector3 = player.global_position - target.global_position
 		to_player.y = 0.0
 		var distance := to_player.length()
-		if distance > 0.01:
-			target_body.rotation.y = atan2(-to_player.x, -to_player.z)
-		if distance > 7.0:
-			var move_step := minf(distance - 6.5, (1.15 + float(i % 3) * 0.18) * delta)
-			target.global_position += to_player.normalized() * move_step
-		var cooldown := float(target.get_meta("attack_cooldown", 1.0)) - delta
-		if distance < 19.0 and cooldown <= 0.0:
+		var state := String(target.get_meta("ai_state", "patrol"))
+		var lost_time := float(target.get_meta("lost_sight_time", 0.0))
+		var sees_player := distance < 95.0 and _enemy_can_see_player(target)
+		if sees_player:
+			state = "alert"
+			target.set_meta("last_seen_position", player.global_position)
+			lost_time = 0.0
+		else:
+			lost_time += delta
+			if lost_time > 7.0:
+				state = "patrol"
+		target.set_meta("lost_sight_time", lost_time)
+		target.set_meta("ai_state", state)
+
+		var move_direction := Vector3.ZERO
+		var move_speed := 0.0
+		if state == "alert":
+			if distance > 12.0:
+				move_direction = to_player.normalized()
+				move_speed = 2.6
+		else:
+			var patrol_origin: Vector3 = target.get_meta("patrol_origin", target.global_position)
+			var phase := float(target.get_meta("patrol_phase", 0.0)) + Time.get_ticks_msec() * 0.00012
+			var waypoint := patrol_origin + Vector3(cos(phase) * 8.0, 0.0, sin(phase) * 8.0)
+			var to_waypoint := waypoint - target.global_position
+			to_waypoint.y = 0.0
+			if to_waypoint.length() > 1.0:
+				move_direction = to_waypoint.normalized()
+				move_speed = 1.15
+		if move_direction.length_squared() > 0.001:
+			target.global_position += move_direction * move_speed * delta
+			target.global_position.y = _terrain_height(target.global_position.x, target.global_position.z) + 0.35
+			target.rotation.y = atan2(-move_direction.x, -move_direction.z)
+		elif state == "alert" and distance > 0.01:
+			target.rotation.y = atan2(-to_player.x, -to_player.z)
+
+		var cooldown := float(target.get_meta("attack_cooldown", 1.8)) - delta
+		if state == "alert" and distance < 28.0 and cooldown <= 0.0:
 			_spawn_enemy_flash(target.global_position + Vector3(0, 1.35, 0))
-			_damage_player(4 + (i % 3) * 2)
-			cooldown = 1.6 + float(i % 3) * 0.45
+			_damage_player(5)
+			cooldown = 2.1
 		target.set_meta("attack_cooldown", cooldown)
-	_update_hud()
 
 
 

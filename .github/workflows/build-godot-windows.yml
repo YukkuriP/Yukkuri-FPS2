@@ -1,0 +1,102 @@
+name: Build Windows App
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Godot with export templates
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.4.1
+          use-dotnet: false
+          include-templates: true
+
+      - name: Read app version
+        id: app-version
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Validate and import Godot project
+        run: godot --headless --editor --path . --quit
+
+      - name: Export standalone Windows executable
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release | Out-Null
+          $godot = Get-ChildItem "$HOME/godot/Godot_v4.4.1-stable_win64.exe" | Select-Object -First 1 -ExpandProperty FullName
+          $output = Join-Path $PWD "release/Operation-Iron-Veil.exe"
+          Write-Host "Godot executable: $godot"
+          Write-Host "Export destination: $output"
+          & $godot --headless --verbose --path $PWD --export-release "Windows Desktop" $output 2>&1 | Tee-Object -FilePath export.log
+          if ($LASTEXITCODE -ne 0) { throw "Godot export failed with exit code $LASTEXITCODE" }
+          if (-not (Test-Path $output)) {
+            Get-Content export.log -Tail 120
+            throw "Godot reported success but did not create the standalone EXE."
+          }
+
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = "${{ steps.app-version.outputs.version }}"
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DGameVersion=$version" installer/iron-veil.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify release files
+        shell: pwsh
+        run: |
+          $portable = Get-Item release/Operation-Iron-Veil.exe
+          $setup = Get-Item "release/Operation-Iron-Veil-Setup-${{ steps.app-version.outputs.version }}.exe"
+          if ($portable.Length -lt 1000000) { throw "Standalone game executable is unexpectedly small." }
+          if ($setup.Length -lt 1000000) { throw "Installer is unexpectedly small." }
+          Get-FileHash $portable.FullName -Algorithm SHA256
+          Get-FileHash $setup.FullName -Algorithm SHA256
+
+      - name: Upload Windows build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Operation-Iron-Veil-Windows-${{ steps.app-version.outputs.version }}
+          path: |
+            release/Operation-Iron-Veil.exe
+            release/Operation-Iron-Veil-Setup-${{ steps.app-version.outputs.version }}.exe
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish stable release
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', steps.app-version.outputs.version) || github.ref_name }}
+          name: "Operation: Iron Veil v${{ steps.app-version.outputs.version }}"
+          body: |
+            Operation: Iron Veil — Godot Windows build.
+
+            The Windows executable contains the Godot game and its project resources in one file.
+            Includes the 1 km × 1 km procedural battlefield and human patrol AI.
+
+            This is an in-development build. Review the known limitations in the repository before distribution.
+          prerelease: false
+          make_latest: true
+          files: |
+            release/Operation-Iron-Veil.exe
+            release/Operation-Iron-Veil-Setup-${{ steps.app-version.outputs.version }}.exe
+          fail_on_unmatched_files: true
