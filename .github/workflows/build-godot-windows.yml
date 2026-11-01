@@ -37,9 +37,19 @@ jobs:
         run: godot --headless --editor --path . --quit
 
       - name: Export standalone Windows executable
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force release | Out-Null
-          godot --headless --path . --export-release "Windows Desktop" release/Operation-Iron-Veil.exe
+          $godot = (Get-Command godot).Source
+          $output = Join-Path $PWD "release/Operation-Iron-Veil.exe"
+          Write-Host "Godot executable: $godot"
+          Write-Host "Export destination: $output"
+          & $godot --headless --verbose --path $PWD --export-release "Windows Desktop" $output 2>&1 | Tee-Object -FilePath export.log
+          if ($LASTEXITCODE -ne 0) { throw "Godot export failed with exit code $LASTEXITCODE" }
+          if (-not (Test-Path $output)) {
+            Get-Content export.log -Tail 120
+            throw "Godot reported success but did not create the standalone EXE."
+          }
 
       - name: Install Inno Setup
         run: choco install innosetup --yes --no-progress
