@@ -46,3 +46,6 @@ jobs:
 
       - name: Start project briefly
         run: godot --headless --path . --quit-after 10
+
+      - name: Smoke-test the 1 km battlefield and hostile patrols
+        run: godot --headless --path . --script tests/smoke_test.gd
