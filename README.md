@@ -2,81 +2,55 @@
 
 **A Yukkuri P Production**
 
-Operation: Iron Veil is a work-in-progress cross-platform game project. This repository contains:
-- **Godot prototype** — native project in the repository root.
-- **Browser edition** — Three.js game in `web/` with optional WebSocket multiplayer in `server/`.
+Operation: Iron Veil is a work-in-progress FPS project. The **main game is the Godot project in the repository root**. The Three.js browser edition is a separate, limited prototype and is not the Windows game's main build.
 
-## Play the browser edition
+## Main game — Godot
 
-### Option A — open the game from your own computer
+Open the repository root in Godot 4.4.1 or later and run `scenes/main.tscn`.
 
-1. Download the repository ZIP and extract it.
-2. Open a terminal in the extracted repository folder.
-3. Run:
+The main game includes:
+- A procedural **1 km × 1 km** battlefield.
+- Mountainous terrain, forest clusters, tunnels, a north-south highway, two town districts, factory, airport, farmland, rural compounds and two opposing bases.
+- First-person view, a detailed procedural carbine game prop, reload, hit feedback and HUD.
+- Human soldier models with patrol, visual detection, pursuit and a simple in-game attack state.
+- Offline free-roam; no multiplayer server is required for the Godot game.
+
+### Controls
+
+- WASD / arrow keys: move
+- Mouse: look; left click once to capture the mouse, then click to fire
+- Shift: sprint
+- R: reload
+- E: interact
+- F: toggle development flight mode
+- Space / Ctrl: ascend / descend while flight mode is active
+- Esc: pause
+
+### Windows release
+
+The Windows build is exported from Godot, not Electron. The portable executable embeds the project data in the EXE, so it is designed to run as a **single file**.
+
+GitHub Actions builds:
+- `Operation-Iron-Veil.exe` — portable standalone game
+- `Operation-Iron-Veil-Setup-<version>.exe` — installer containing the same game
+
+The project uses Godot export templates; the build workflow installs them automatically.
+
+## Browser edition — separate prototype
+
+The `web/` folder contains an independent Three.js prototype with a small training arena and optional WebSocket player-position synchronization. It is not the 1 km Godot battlefield and does not contain the Godot soldier AI. Do not use the browser build as a substitute for the main game.
+
+To run the browser prototype locally:
 
 ```bash
 python -m http.server 8000 --bind 127.0.0.1
 ```
 
-4. Open **http://localhost:8000/web/** in your browser.
+Then open `http://localhost:8000/web/`. The browser prototype loads Three.js from a CDN and requires internet access. Its multiplayer server is separate from the Godot game.
 
-On Windows, `py -3 -m http.server 8000 --bind 127.0.0.1` may be used if `python` is not recognized. Keep the terminal open while playing; press Ctrl+C to stop the local web server. Do not open `web/index.html` as a `file://` URL because browser JavaScript modules require HTTP.
+## Development status
 
-### Option B — publish it with GitHub Pages
-
-The repository now has a root `index.html` that redirects to the browser game. In GitHub, open **Settings → Pages**, choose **Deploy from a branch**, select the `main` branch and `/(root)`, then save. After GitHub Pages finishes publishing, open:
-
-`https://yukkurip.github.io/Yukkuri-FPS2/`
-
-If Pages has not been enabled for the repository, the URL will not work until the setting is saved. GitHub Pages hosts the static game files; it does not run the Python multiplayer server. The browser loads Three.js from jsDelivr, so internet access is still required for that dependency.
-
-## Game modes
-
-### Offline training
-
-Select **「訓練ミッションを開始（オフライン）」** from the menu. No multiplayer server is needed. Reach the three glowing objective markers in order before the three-minute timer expires. WASD or arrow keys move, Shift sprints, and the mouse controls the view. Touch devices use the on-screen movement pad and drag-to-look area.
-
-### Optional online multiplayer
-
-Multiplayer requires a separately hosted secure WebSocket server. The default configured address is `wss://iron-veil-server.onrender.com`; availability is not guaranteed, and free hosts may sleep. Enter a room code and select **「オンラインロビーに接続」**. The browser prototype synchronizes player positions and displays other players. Position updates are limited to 15 per second; the server validates numeric input and limits rooms to 16 players. The offline objective mission is single-player.
-
-If connection fails, use offline training or check the server and network with the network administrator. Do not attempt to bypass school or organization network restrictions.
-
-To run your own server, install Python 3.11+ and the dependency:
-
-```bash
-pip install -r server/requirements.txt
-python server/main.py
-```
-
-Deploy it to a host that explicitly supports persistent WebSocket connections and TLS, then enter its `wss://` URL. The client intentionally requires secure WebSocket connections.
-
-## Browser prototype status
-
-Implemented:
-- Startup title and responsive lobby.
-- Offline three-objective timed training mission.
-- 3D arena with textured ground, perimeter skyline, structures, lighting, fog, and objective markers.
-- Soft directional shadows and improved material response, with capped pixel ratio to limit GPU cost.
-- Desktop and touch movement, sprint, mouse/touch look, timer, and mission status.
-- Optional WebSocket room join and player-position synchronization.
-- Procedurally animated remote-player characters with smoothed network movement.
-- Three non-combat training drones that patrol around their home positions and observe the player nearby.
-- Optional GLB character-model loading with animation clips. If `web/assets/characters/operator.glb` is not present or fails to load, the game safely keeps its procedural character fallback.
-
-### Optional character model
-
-To use a custom model, add a properly licensed, web-compatible GLB file at `web/assets/characters/operator.glb`. The model should be upright with its feet near ground level; embedded animation clips are supported. No third-party model is bundled in this repository, so the fallback character remains active until you supply one.
-
-Still in development:
-- The browser edition is a prototype, not a finished AAA game.
-- Online match objectives are not synchronized yet; the current online feature is basic player-position synchronization.
-- More playtesting is needed on low-spec Windows PCs and Android browsers. Touch look now uses a dedicated pointer-captured control, and movement is blocked by the arena's box obstacles.
-- The browser edition loads Three.js from a CDN and is not fully offline with no internet at all.
-
-## Godot prototype
-
-Open the repository root's `project.godot` in Godot 4.x.
+This remains an in-development project, not a finished AAA game. The battlefield and basic enemy behavior are being restored first; animation quality, advanced navigation, richer mission systems, sound, optimization and thorough real-device playtesting still need work.
 
 ## License
 
