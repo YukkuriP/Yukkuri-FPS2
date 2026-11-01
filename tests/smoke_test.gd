@@ -32,15 +32,13 @@ func _run_smoke_test() -> void:
 		return
 
 	var soldiers := 0
-	var target_bodies := 0
 	for child in world.get_children():
 		if child.name.begins_with("TrainingSoldier_"):
 			soldiers += 1
 			if String(child.get_meta("ai_state", "")) != "patrol":
 				_fail("A hostile soldier did not start in patrol state.")
 				return
-		if child is Node and child.is_in_group("training_target"):
-			target_bodies += 1
+	var target_bodies := main.get_tree().get_nodes_in_group("training_target").size()
 	if soldiers != 8 or target_bodies != 8:
 		_fail("Expected 8 human patrols and 8 hit bodies; got %d and %d." % [soldiers, target_bodies])
 		return
