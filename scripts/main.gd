@@ -302,14 +302,8 @@ func _build_training_world() -> void:
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_BG
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.08
-	# Contact shading adds depth to building corners and terrain details.
-	env.ssao_enabled = true
-	env.ssao_radius = 1.8
-	env.ssao_intensity = 1.15
-	env.ssao_power = 1.25
-	env.ssao_detail = 0.5
-	env.ssao_horizon = 0.08
-	env.ssao_direct_light_affect = 0.12
+	# Keep GL Compatibility support for modest PCs; screen-space AO is not available there.
+	env.ssao_enabled = false
 	env.glow_enabled = true
 	env.glow_intensity = 0.45
 	env.glow_strength = 0.8
