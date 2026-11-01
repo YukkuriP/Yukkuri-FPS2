@@ -40,7 +40,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force release | Out-Null
-          $godot = (Get-Command godot).Source
+          $godot = Get-ChildItem "$HOME/godot/Godot_v4.4.1-stable_win64.exe" | Select-Object -First 1 -ExpandProperty FullName
           $output = Join-Path $PWD "release/Operation-Iron-Veil.exe"
           Write-Host "Godot executable: $godot"
           Write-Host "Export destination: $output"
